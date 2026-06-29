@@ -1,0 +1,53 @@
+services:
+  risk-scoring:
+    build:
+      context: ./risk-scoring
+      dockerfile: Dockerfile
+    container_name: trace-x-risk-scoring
+    ports:
+      - "5001:5001"
+    environment:
+      FLASK_ENV: development
+      PYTHONUNBUFFERED: "1"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trace-x-backend
+    ports:
+      - "8888:8888"
+    env_file:
+      - .env
+    environment:
+      FLASK_ENV: development
+      PYTHONUNBUFFERED: "1"
+      RISK_SCORING_API_URL: http://risk-scoring:5001
+    depends_on:
+      risk-scoring:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: trace-x-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_BACKEND_API_URL: http://localhost:8888
+    depends_on:
+      backend:
+        condition: service_healthy

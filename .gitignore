@@ -1,0 +1,53 @@
+.DS_Store
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs and process files
+logs/
+*.log
+.pids/
+*.pid
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.pytest_cache/
+.coverage
+venv/
+.venv/
+env/
+
+# Node
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.vite/
+
+# Local databases and caches
+*.db
+*.sqlite
+*.cache
+data/cache/
+data/results/
+
+# Large local research artifacts
+*.pdf
+*.zip
+*.XML
+*.coredownload*
+
+# Model artifacts are kept outside git unless explicitly needed.
+*.pkl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

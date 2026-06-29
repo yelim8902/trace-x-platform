@@ -1,0 +1,43 @@
+# flyctl launch added from .gitignore
+# Python
+**/__pycache__
+**/*.py[cod]
+**/*$py.class
+**/*.so
+**/.Python
+**/env
+**/venv
+**/ENV
+**/.venv
+
+# IDE
+**/.vscode
+**/.idea
+**/*.swp
+**/*.swo
+**/*~
+
+# 데이터 (큰 파일)
+**/*.csv
+**/*.json
+!**/data/lists/*.json
+!**/demo/**/*.json
+!**/docs/examples/*.json
+
+# 결과 파일
+**/result
+**/reports
+**/*.log
+
+# 환경 변수
+**/.env
+**/.env.local
+
+# OS
+**/.DS_Store
+**/Thumbs.db
+
+# Legacy (선택적으로 포함)
+# legacy/
+
+fly.toml

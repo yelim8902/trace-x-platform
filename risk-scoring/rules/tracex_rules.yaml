@@ -1,0 +1,806 @@
+meta:
+  version: '2.1'
+  namespace: TRACE-X
+  description: >
+    Compliance/Exposure/Behavior rulebook v2.1.
+    특정금융거래정보의 보고 및 이용 등에 관한 법률(특금법),
+    가상자산 이용자 보호 등에 관한 법률,
+    FATF (2020) Virtual Asset Red Flag Indicators of ML/TF,
+    FATF (2021) Updated Guidance for a Risk-Based Approach: VAs and VASPs 직접 매핑.
+
+    설계 원칙 — 그래프 피처와의 역할 분리:
+    C-axis: 특금법/FATF 법적 임계값 직접 위반 여부 (금액·횟수·시간 기준)
+    E-axis: 외부 블랙리스트(SDN·믹서·스캠) 노출 — 그래프 통계로 대체 불가
+    B-axis: 시간대·금액 범위·토폴로지 등 그래프 집계 통계가 포착하지 못하는 패턴
+    (fan_in/fan_out 집계로 이미 커버되는 단순 10분 버킷 룰은 제외)
+  references:
+    - "특금법: 특정금융거래정보의 보고 및 이용 등에 관한 법률 (최종 개정 2026. 2. 19.)"
+    - "FATF (2020): Virtual Asset Red Flag Indicators of Money Laundering and Terrorist Financing, September 2020"
+    - "FATF (2021): Updated Guidance for a Risk-Based Approach — Virtual Assets and VASPs, October 2021"
+    - "Chainalysis (2025): The 2025 Crypto Crime Report, February 2025"
+
+defaults:
+  currency: USD
+  fields:
+    timestamp: timestamp
+    from: from
+    to: to
+    usd_value: usd_value
+    token: token
+    tx_hash: tx_hash
+
+rules:
+
+# ═══════════════════════════════════════════════════════════════════
+# C-axis: Compliance — 법령 준수 위반 의심
+# ═══════════════════════════════════════════════════════════════════
+
+- id: C-001
+  name: Sanction Direct Touch
+  axis: C
+  severity: HIGH
+  legal_basis: >
+    특금법 제4조의2(의심거래보고) — 제재 대상자와의 직접 거래;
+    FATF Recommendation 6 (Targeted Financial Sanctions);
+    FATF (2020) Red Flag Indicators: Source of Funds — "Transacting with VA addresses
+    connected to known fraud, extortion, ransomware schemes, sanctioned addresses,
+    darknet marketplaces, or other illicit websites"
+  description: Direct interaction with SDN list
+  match:
+    any:
+    - in_list:
+        field: from
+        list: SDN_LIST
+    - in_list:
+        field: to
+        list: SDN_LIST
+  conditions:
+    all:
+    - gte:
+        field: usd_value
+        value: 1
+  exceptions:
+    any:
+    - tag:
+        field: from
+        key: CEX_INTERNAL
+        equals: true
+    - tag:
+        field: to
+        key: CEX_INTERNAL
+        equals: true
+  score: 30
+
+- id: C-002
+  name: High-Risk Jurisdiction VASP
+  axis: C
+  severity: MEDIUM
+  legal_basis: >
+    특금법 제5조의2(고객확인의무) 제2항 — 고위험 국가 거래 강화확인 의무;
+    FATF (2021) VA-VASP Guidance: Geographical Risk Indicators —
+    "Countries identified as having significant levels of organized crime or
+    that have not properly implemented FATF Standards for VAs and VASPs";
+    FATF (2020) Red Flag Indicators: Geographical Risks — "VASPs domiciled or
+    operated in jurisdictions with non-existent or minimal AML/CFT regulations"
+  match:
+    any:
+    - tag:
+        field: counterparty
+        key: country
+        in:
+        - IR
+        - RU
+        - KP
+  conditions:
+    all:
+    - tag:
+        field: counterparty
+        key: type
+        equals: VASP
+  exceptions:
+    any:
+    - tag:
+        field: counterparty
+        key: safe_vasp
+        equals: true
+  score: 20
+
+- id: C-003
+  name: High-Value Single Transfer
+  axis: C
+  severity: MEDIUM
+  legal_basis: >
+    특금법 제4조의2(고액현금거래보고) 제1항 + 시행령 제8조의2 —
+    1거래일 기준 1천만원(≈$7,500) 이상 거래 보고 의무;
+    특금법 제8조 — 가상자산사업자에게 동일 보고의무 적용;
+    FATF (2020) Red Flag Indicators: Transactions —
+    "Transaction size: amount and frequency has no logical business explanation"
+  conditions:
+    all:
+    - gte:
+        field: usd_value
+        value: 7500
+  exceptions:
+    any:
+    - tag:
+        field: from
+        key: CEX_INTERNAL
+        equals: true
+    - tag:
+        field: to
+        key: CEX_INTERNAL
+        equals: true
+  score: 20
+
+- id: C-004
+  name: High-Value Repeated Transfer (24h)
+  axis: C
+  severity: MEDIUM
+  legal_basis: >
+    특금법 제4조의2(의심거래보고) — 단기 반복 고액 거래;
+    FATF (2020) Red Flag Indicators: Transaction Patterns —
+    "Conducting a large initial deposit and trading the total amount or large
+    portion on the same day"; "multiple transactions in rapid succession
+    inconsistent with customer profile"
+  window:
+    duration_sec: 86400
+    group_by:
+    - address
+  aggregations:
+  - sum_gte:
+      field: usd_value
+      value: 5000
+  - count_gte:
+      value: 2
+  - every_gte:
+      field: usd_value
+      value: 1000
+  exceptions:
+    any:
+    - tag:
+        field: address
+        key: MM_BOT
+        equals: true
+    - tag:
+        field: address
+        key: CEX_INTERNAL
+        equals: true
+  score: 20
+
+- id: C-005
+  name: "CTR 회피 구조화 (10M KRW 임계값 분산)"
+  axis: C
+  severity: HIGH
+  legal_basis: >
+    특금법 제4조의2(고액현금거래보고) 제2항 — "제1항을 회피할 목적으로 금액을 분산하여
+    금융거래등을 하고 있다고 의심되는 합당한 근거가 있는 경우 보고";
+    시행령 제8조의2 제1항 — 기준금액 1천만원(≈$7,500);
+    특금법 제8조 — 가상자산사업자 동일 적용;
+    FATF (2020) Red Flag Indicators: Transaction Patterns —
+    "Transactions which are structured to avoid reporting or appear irregular,
+    unusual or uncommon"; Case Study 13 — "amounts slightly below the
+    USD 10,000 reporting requirement"
+  description: >
+    24시간 내 단일 주소 발신 거래합이 $5,000~$7,499(≈10M KRW 이하)에
+    해당하는 거래가 3건 이상 반복될 때 CTR 보고 의무 회피(구조화) 의심.
+  window:
+    duration_sec: 86400
+    group_by:
+    - address
+    - direction:outgoing
+  aggregations:
+  - count_gte:
+      value: 3
+  - every_gte:
+      field: usd_value
+      value: 5000
+  - every_lte:
+      field: usd_value
+      value: 7499
+  exceptions:
+    any:
+    - tag:
+        field: address
+        key: CEX_INTERNAL
+        equals: true
+    - tag:
+        field: address
+        key: MM_BOT
+        equals: true
+  score: 20
+
+- id: C-006
+  name: "STR 의심 — 다수 출처 즉시 이체"
+  axis: C
+  severity: HIGH
+  legal_basis: >
+    특금법 제4조(의심거래보고) 제1항 제2호 — "자금세탁행위를 하고 있다고 의심되는
+    합당한 근거가 있는 경우 보고";
+    FATF (2020) Red Flag Indicators: Transactions —
+    "Depositing VAs at an exchange and then immediately withdrawing the VAs
+    without additional exchange activity — effectively turns the exchange into an ML mixer";
+    FATF (2020) Red Flag Indicators: Transaction Patterns — rapid consolidation pattern
+  description: >
+    1시간 내 3개 이상 상이한 출처에서 자금을 수취하고
+    수취 후 30분 이내에 합산 금액의 80% 이상을 단일 주소로 전송.
+    자금세탁 통합(Integration) 단계 의심.
+  special_type: rapid_consolidation
+  window:
+    duration_sec: 3600
+    group_by:
+    - address
+  aggregations:
+  - distinct_gte:
+      field: from
+      value: 3
+  - sum_gte:
+      field: usd_value
+      value: 1000
+  score: 25
+
+
+# ═══════════════════════════════════════════════════════════════════
+# E-axis: Exposure — 위험 주소/서비스 노출도
+# ═══════════════════════════════════════════════════════════════════
+
+- id: E-101
+  name: Mixer Direct Exposure
+  axis: E
+  severity: HIGH
+  legal_basis: >
+    특금법 제4조(의심거래보고) 제1항 — 자금세탁 의심 서비스 이용;
+    FATF (2021) VA-VASP Guidance §304(a) — "Technological features that increase
+    anonymity — such as mixers, tumblers or AECs";
+    FATF (2020) Red Flag Indicators: Anonymity —
+    "Transactions making use of mixing and tumbling services, suggesting an intent
+    to obscure the flow of illicit funds between known wallet addresses and
+    darknet marketplaces"
+  match:
+    any:
+    - in_list:
+        field: from
+        list: MIXER_LIST
+  conditions:
+    all:
+    - gte:
+        field: usd_value
+        value: 20
+  exceptions:
+    any:
+    - tag:
+        field: address
+        key: REWARD_PAYOUT
+        equals: true
+  score: 32
+
+- id: E-102
+  name: "Indirect Sanctions Exposure (≤2 hops)"
+  axis: E
+  severity: HIGH
+  legal_basis: >
+    특금법 제4조(의심거래보고) 제1항 제1호 — "수수한 재산이 불법재산이라고 의심";
+    FATF Recommendation 6 — 간접 제재 대상 연결 거래;
+    FATF (2020) Red Flag Indicators: Source of Funds —
+    "Funds deposited or withdrawn from a VA address with direct and indirect
+    exposure links to known suspicious sources"
+  match:
+    any:
+    - in_list:
+        field: address
+        list: SDN_HOP1
+    - in_list:
+        field: address
+        list: SDN_HOP2
+  conditions:
+    all:
+    - gte:
+        field: usd_value
+        value: 40
+  exceptions:
+    any:
+    - tag:
+        field: address
+        key: CEX_INTERNAL
+        equals: true
+  score: 39
+
+- id: E-103
+  name: Counterparty Quality Risk
+  axis: E
+  severity: MEDIUM
+  legal_basis: >
+    특금법 제5조의2(강화된 고객확인) — 고위험 거래상대방 추가 확인 의무;
+    FATF (2020) Red Flag Indicators: Senders or Recipients — Profile —
+    "Customer's VA address appears on public forums associated with illegal activity";
+    "Customer is known via publicly available information to law enforcement"
+  conditions:
+    all:
+    - gte:
+        field: counterparty.risk_score
+        value: 0.7
+  score_range:
+  - 10
+  - 20
+  score: 19
+
+- id: E-104
+  name: Bridge Direct Exposure
+  axis: E
+  severity: MEDIUM
+  legal_basis: >
+    가상자산이용자보호법 제10조(불공정거래행위 금지) — 추적 회피 수단 이용;
+    FATF (2020) Red Flag Indicators: Anonymity —
+    "Use of decentralised/unhosted, hardware or paper wallets to transport VAs
+    across borders" — 크로스체인 브릿지를 통한 자금 추적 회피
+  description: Direct interaction with Bridge contract
+  match:
+    any:
+    - in_list:
+        field: from
+        list: BRIDGE_LIST
+    - in_list:
+        field: to
+        list: BRIDGE_LIST
+  conditions:
+    all:
+    - gte:
+        field: usd_value
+        value: 20
+  exceptions:
+    any:
+    - tag:
+        field: from
+        key: CEX_INTERNAL
+        equals: true
+    - tag:
+        field: to
+        key: CEX_INTERNAL
+        equals: true
+  score: 19
+
+- id: E-105
+  name: Scam Direct Exposure
+  axis: E
+  severity: MEDIUM
+  legal_basis: >
+    특금법 제4조(의심거래보고) 제1항 제1호 — "수수한 재산이 불법재산이라고 의심";
+    FATF (2020) Red Flag Indicators: Transactions —
+    "Accepting funds suspected as stolen or fraudulent — depositing funds from
+    VA addresses identified as holding stolen funds";
+    FATF (2020) Case Study 2 (South Korea) — "KRW 400 million stolen from phishing
+    victims exchanged for VAs and transferred through 48 separate accounts"
+  description: Direct interaction with Scam address
+  match:
+    any:
+    - in_list:
+        field: from
+        list: SCAM_LIST
+    - in_list:
+        field: to
+        list: SCAM_LIST
+  conditions:
+    all:
+    - gte:
+        field: usd_value
+        value: 200
+  exceptions:
+    any:
+    - tag:
+        field: from
+        key: CEX_INTERNAL
+        equals: true
+    - tag:
+        field: to
+        key: CEX_INTERNAL
+        equals: true
+  score: 26
+
+- id: E-106
+  name: "Travel Rule 미이행 VASP 거래"
+  axis: E
+  severity: MEDIUM
+  legal_basis: >
+    특금법 제7조의2(가상자산사업자 간 거래정보 전송) — Travel Rule 이행 의무;
+    FATF Recommendation 15/16 — Travel Rule ($1,000 이상 송금 시 발신인·수신인 정보 전송);
+    FATF (2021) VA-VASP Guidance §304(b) — "Geographical risks: criminals exploit
+    countries with weak, or absent, national measures for VAs";
+    FATF (2020) Red Flag Indicators: Geographical Risks —
+    "Transferring VAs to VASPs registered in jurisdictions where AML/CFT
+    regulation is non-existent or minimal"
+  description: >
+    FATF Travel Rule($1,000 이상 VASP 간 거래)을 이행하지 않거나
+    이행 여부가 불명확한 VASP 주소와의 직접 거래.
+  match:
+    any:
+    - tag:
+        field: counterparty
+        key: travel_rule_noncompliant
+        equals: true
+  conditions:
+    all:
+    - gte:
+        field: usd_value
+        value: 1000
+  exceptions:
+    any:
+    - tag:
+        field: counterparty
+        key: safe_vasp
+        equals: true
+  score: 20
+
+
+# ═══════════════════════════════════════════════════════════════════
+# B-axis: Behavior — 행동 패턴 이상
+# ═══════════════════════════════════════════════════════════════════
+
+- id: B-101
+  name: Burst (10m)
+  axis: B
+  severity: MEDIUM
+  legal_basis: >
+    특금법 제4조(의심거래보고) 제1항 제2호 — 비정상적 거래 빈도;
+    FATF (2020) Red Flag Indicators: Transaction Patterns —
+    "Irregular, unusual, or uncommon patterns of transactions"
+  window:
+    duration_sec: 600
+    group_by:
+    - address
+    cooldown_sec: 1800
+  aggregations:
+  - count_gte:
+      value: 2
+  exceptions:
+    any:
+    - tag:
+        field: address
+        key: CEX_INTERNAL
+        equals: true
+    - tag:
+        field: address
+        key: MM_BOT
+        equals: true
+  score: 15
+
+- id: B-102
+  name: Rapid Sequence (1m)
+  axis: B
+  severity: HIGH
+  legal_basis: >
+    특금법 제4조(의심거래보고) 제1항 제2호 — 초고속 연속 거래;
+    FATF (2020) Red Flag Indicators: Transaction Patterns —
+    Case Study 4 — "transfers totalling USD 4.8 million (two separate transactions
+    that occurred six minutes apart on the same day)"
+  window:
+    duration_sec: 60
+    group_by:
+    - address
+    cooldown_sec: 900
+  aggregations:
+  - count_gte:
+      value: 3
+  exceptions:
+    any:
+    - tag:
+        field: address
+        key: CEX_INTERNAL
+        equals: true
+    - tag:
+        field: address
+        key: MM_BOT
+        equals: true
+  score: 20
+
+- id: B-103
+  name: Inter-arrival Std High
+  axis: B
+  severity: LOW
+  legal_basis: >
+    특금법 제4조(의심거래보고) 제1항 — 거래 패턴 이상;
+    FATF (2020) Red Flag Indicators: Transaction Patterns —
+    "Irregular, unusual, or uncommon patterns of transactions"
+  prerequisites:
+  - min_edges: 5
+  conditions:
+    all:
+    - gte:
+        field: interarrival_std
+        value: 1.5
+    - gte:
+        field: usd_value
+        value: 20
+  score: 10
+
+- id: B-201
+  name: Layering Chain (same token)
+  axis: B
+  severity: HIGH
+  legal_basis: >
+    특금법 제4조(의심거래보고) 제1항 제2호 — 자금세탁 단계화(Layering) 탐지;
+    FATF Recommendation 16 — 연속 이체를 통한 자금 세탁;
+    FATF (2020) Red Flag Indicators: Transaction Patterns —
+    "Multiple immediate transfers through a chain, incurring additional transaction
+    fees without logical business explanation"
+  topology:
+    same_token: true
+    hop_length_gte: 3
+    hop_amount_delta_pct_lte: 5
+    min_usd_value: 100
+  score: 25
+
+- id: B-202
+  name: Cycle (length 2-3, same token)
+  axis: B
+  severity: HIGH
+  legal_basis: >
+    특금법 제4조(의심거래보고) 제1항 제2호 — 순환 거래를 통한 자금세탁;
+    FATF Recommendation 16 — 순환 구조 자금이동;
+    FATF (2020) Red Flag Indicators: Transaction Patterns —
+    "Customer repeatedly conducts transactions with a subset of individuals at
+    significant profit or loss — ML scheme to obfuscate funds flow"
+  topology:
+    same_token: true
+    cycle_length_in:
+    - 2
+    - 3
+    cycle_total_usd_gte: 100
+  score: 30
+
+
+- id: B-401
+  name: First 7 Days Burst
+  axis: B
+  severity: MEDIUM
+  legal_basis: >
+    특금법 제5조의2(강화된 고객확인) — 신규 계정의 비정상적 초기 활동;
+    FATF (2020) Red Flag Indicators: Transaction Patterns — Transactions concerning new users —
+    "Conducting a large initial deposit to open a new relationship with a VASP,
+    while the amount funded is inconsistent with the customer profile";
+    "funding the entire deposit the first day it is opened and trading the total
+    amount or large portion on that same day"
+  state:
+    required:
+    - first_seen_ts
+    - first7d_usd
+    - first7d_tx_count
+  conditions:
+    all:
+    - lte:
+        field: age_days
+        value: 7
+    - gte:
+        field: first7d_usd
+        value: 10000
+    - gte:
+        field: first7d_tx_count
+        value: 3
+  score: 20
+
+- id: B-402
+  name: Reactivation
+  axis: B
+  severity: LOW
+  legal_basis: >
+    특금법 제4조(의심거래보고) — 장기 비활성 후 고액 재활성화;
+    FATF (2020) Red Flag Indicators: Senders or Recipients — Unusual Behaviour —
+    "A customer frequently changes his or her identification information or financial
+    information"; 기존 저활동 계정의 갑작스러운 고액 거래 재개
+  state:
+    required:
+    - first_seen_ts
+    - last_seen_ts
+  conditions:
+    all:
+    - gte:
+        field: age_days
+        value: 365
+    - gte:
+        field: inactive_days
+        value: 180
+    - gte:
+        field: usd_value
+        value: 1000
+  score: 15
+
+- id: B-403A
+  name: "Lifecycle A — Young but Busy"
+  axis: B
+  severity: LOW
+  legal_basis: >
+    특금법 제4조(의심거래보고) — 신규 주소 비정상 거래량;
+    FATF (2020) Red Flag Indicators: Transaction Patterns — Transactions concerning new users —
+    "large initial deposit inconsistent with the customer profile"
+  conditions:
+    all:
+    - lte:
+        field: age_days
+        value: 30
+    - gte:
+        field: tx_count_30d
+        value: 100
+    - gte:
+        field: median_usd_30d
+        value: 100
+  score: 10
+
+- id: B-403B
+  name: "Lifecycle B — Old and Rare High Value"
+  axis: B
+  severity: LOW
+  legal_basis: >
+    특금법 제4조(의심거래보고) — 기존 저활성 계정 고액 거래 이상;
+    FATF (2020) Red Flag Indicators: Senders or Recipients — Profile —
+    "Customer purchases large amounts of VA not substantiated by available wealth
+    or consistent with his or her historical financial profile"
+  conditions:
+    all:
+    - gte:
+        field: age_days
+        value: 365
+    - lte:
+        field: tx_count_total
+        value: 10
+    - gte:
+        field: total_usd_total
+        value: 50000
+    - gte:
+        field: median_usd_total
+        value: 5000
+  score: 10
+
+- id: B-501
+  name: High-Value Buckets
+  axis: B
+  severity: MEDIUM
+  legal_basis: >
+    특금법 제4조의2(고액현금거래보고) + 시행령 제8조의2 — 금액 구간별 위험도 차등;
+    FATF (2021) VA-VASP Guidance §304(d) — "Transaction size: if the amount and
+    frequency has no logical business explanation"
+  buckets:
+    field: usd_value
+    ranges:
+    - min: 1000
+      max: 5000
+      score: 3
+    - min: 5000
+      max: 10000
+      score: 6
+    - min: 10000
+      max: 50000
+      score: 9
+    - min: 50000
+      max: 250000
+      score: 14
+    - min: 250000
+      max: 1000000
+      score: 21
+    - min: 1000000
+      score: 30
+  score: dynamic
+
+- id: B-502
+  name: "Structuring — Rounded Value Repetition (24h outgoing)"
+  axis: B
+  severity: LOW
+  legal_basis: >
+    특금법 제4조의2(고액현금거래보고) 제2항 — "보고를 회피할 목적으로 금액을 분할";
+    FATF (2020) Red Flag Indicators: Transaction Patterns —
+    "Transactions which are structured to avoid reporting or appear irregular,
+    unusual or uncommon"; 반복적인 동일 금액 패턴 (구조화/Structuring)
+  window:
+    duration_sec: 86400
+    group_by:
+    - address
+    - direction:outgoing
+  aggregations:
+  - any_gte:
+      field: usd_value
+      value: 10000000
+  - group_by_value: rounded_value
+  - per_group:
+    - count_gte:
+        value: 5
+    - sum_gte:
+        field: usd_value
+        value: 10000
+  score: 10
+
+- id: B-504
+  name: "심야 집중 거래 (KST 00:00-06:00)"
+  axis: B
+  severity: MEDIUM
+  legal_basis: >
+    특금법 제4조(의심거래보고) 제1항 제2호 — 비정상적 시간대 거래 패턴;
+    FATF (2020) Red Flag Indicators: Transaction Patterns — Case Study 4 —
+    "transfers totalling USD 4.8 million (two separate transactions that occurred
+    six minutes apart on the same day)" — 비정상적 시간·속도의 고액 거래
+  description: >
+    한국 표준시(UTC+9) 기준 자정~새벽 6시 사이에
+    5건 이상, 합계 $1,000 이상의 거래가 발생한 경우.
+    국내 규제 시간 외 자금이동 의심.
+  special_type: off_hours_kst
+  window:
+    duration_sec: 21600
+    group_by:
+    - address
+    - hour_range:0-6:kst
+  aggregations:
+  - count_gte:
+      value: 5
+  - sum_gte:
+      field: usd_value
+      value: 1000
+  exceptions:
+    any:
+    - tag:
+        field: address
+        key: CEX_INTERNAL
+        equals: true
+  score: 10
+
+- id: B-505
+  name: "CTR 임계값 직하 동일 금액 반복 (스머핑)"
+  axis: B
+  severity: HIGH
+  legal_basis: >
+    특금법 제4조의2(고액현금거래보고) 제2항 — "제1항을 회피할 목적으로 금액을 분할하여
+    금융거래등을 하고 있다고 의심되는 합당한 근거가 있는 경우 보고";
+    시행령 제8조의2 — 기준금액 1천만원(≈$7,500);
+    특금법 제8조 — 가상자산사업자 동일 적용;
+    FATF (2020) Red Flag Indicators: Transaction Patterns —
+    "Transactions which are structured to avoid reporting";
+    FATF (2020) Case Study 13 (United States) — "defendant bought Bitcoin in hundreds
+    of separate transactions, amounts slightly below the USD 10,000 reporting requirement"
+  description: >
+    24시간 내 $6,000~$7,499(≈8~10M KRW) 범위의
+    동일하거나 유사한 금액($±200 이내)이 3건 이상 반복되는 경우.
+    보고 의무를 회피하기 위한 의도적 분할 거래(스머핑) 의심.
+  special_type: smurfing_below_ctr
+  window:
+    duration_sec: 86400
+    group_by:
+    - address
+    - direction:outgoing
+  aggregations:
+  - count_gte:
+      value: 3
+  - every_gte:
+      field: usd_value
+      value: 6000
+  - every_lte:
+      field: usd_value
+      value: 7499
+  exceptions:
+    any:
+    - tag:
+        field: address
+        key: CEX_INTERNAL
+        equals: true
+  score: 18
+
+- id: B-506
+  name: "스테이블코인 급속 회전 (수취 후 1h 내 95% 이상 전송)"
+  axis: B
+  severity: MEDIUM
+  legal_basis: >
+    가상자산이용자보호법 제10조(불공정거래행위 금지);
+    특금법 제4조(의심거래보고) 제1항 제2호;
+    FATF (2020) Red Flag Indicators: Transactions —
+    "Withdrawing the VAs from a VASP immediately to a private wallet —
+    effectively turns the exchange into an ML mixer";
+    FATF (2021) VA-VASP Guidance §304(d) — "Transaction size and frequency
+    with no logical business explanation" — 스테이블코인 기반 급속 회전
+  description: >
+    USDT/USDC/DAI 등 스테이블코인을 수취한 후
+    1시간 이내에 수취액의 95% 이상을 단일 또는 소수 주소로 전송.
+    스테이블코인 기반 자금세탁 또는 사기 피해금 신속 이동 의심.
+  special_type: stablecoin_rapid_turnover
+  conditions:
+    all:
+    - in_list:
+        field: token
+        list: STABLECOIN_LIST
+    - gte:
+        field: usd_value
+        value: 500
+  score: 15
