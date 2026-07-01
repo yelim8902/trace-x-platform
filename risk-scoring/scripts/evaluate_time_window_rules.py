@@ -67,20 +67,28 @@ def eval_B102(sent, received):
 
 
 def eval_B203(sent):
-    """10분 내 3개 이상 고유 수신자에게 합계 $500+ 송금"""
+    """10분 내 3개 이상 고유 수신자에게 합계 $1,000+ 송금 (건당 $100+) — tracex_rules.yaml B-203과 동일 기준"""
     def check(w):
         recipients = set(t["to"] for t in w)
         total = sum(t["usd"] for t in w)
-        return len(recipients) >= 3 and total >= 500
+        return (
+            len(recipients) >= 3
+            and total >= 1000
+            and all(t["usd"] >= 100 for t in w)
+        )
     return sliding_window_check(sent, 600, check)
 
 
 def eval_B204(received):
-    """10분 내 3개 이상 고유 출처에서 합계 $500+ 수취"""
+    """10분 내 3개 이상 고유 출처에서 합계 $1,000+ 수취 (건당 $100+) — tracex_rules.yaml B-204와 동일 기준"""
     def check(w):
         senders = set(t["from"] for t in w)
         total = sum(t["usd"] for t in w)
-        return len(senders) >= 3 and total >= 500
+        return (
+            len(senders) >= 3
+            and total >= 1000
+            and all(t["usd"] >= 100 for t in w)
+        )
     return sliding_window_check(received, 600, check)
 
 

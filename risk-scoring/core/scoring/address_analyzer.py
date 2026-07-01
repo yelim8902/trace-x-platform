@@ -315,6 +315,10 @@ class AddressAnalyzer:
                 tags.add("cex_inflow")
             if "burst" in rule_name or "B-101" in rule_id or "B-102" in rule_id:
                 tags.add("suspicious_pattern")
+            if "fan-out" in rule_name or "B-203" in rule_id:
+                tags.add("fan_out_pattern")
+            if "fan-in" in rule_name or "B-204" in rule_id:
+                tags.add("fan_in_pattern")
         
         return sorted(list(tags))
     

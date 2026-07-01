@@ -20,6 +20,7 @@ class ListLoader:
         """
         self.data_dir = Path(data_dir)
         self._cache: Dict[str, Set[str]] = {}
+        self._tags_cache: Optional[Dict[str, Set[str]]] = None
     
     def get_sdn_list(self) -> Set[str]:
         """OFAC SDN 리스트 반환"""
@@ -53,13 +54,46 @@ class ListLoader:
     
     def get_all_lists(self) -> Dict[str, Set[str]]:
         """모든 리스트 반환"""
-        return {
+        lists = {
             "SDN_LIST": self.get_sdn_list(),
             "CEX_LIST": self.get_cex_list(),
             "MIXER_LIST": self.get_mixer_list(),
             "BRIDGE_LIST": self.get_bridge_list(),
             "SCAM_LIST": self.get_scam_list(),
         }
+        # 룰 exceptions의 tag 조건(CEX_INTERNAL, MM_BOT 등)이 참조하는 주소 태그
+        lists.update(self.get_address_tags())
+        return lists
+
+    def get_address_tags(self) -> Dict[str, Set[str]]:
+        """
+        커스텀 주소 태그 반환 (예: CEX_INTERNAL, MM_BOT)
+
+        data/lists/address_tags.json 형식: {"태그명": ["0x주소", ...], ...}
+        룰북 exceptions의 `tag: {key: <태그명>}` 조건이 이 태그명으로 조회함.
+        """
+        if self._tags_cache is None:
+            self._tags_cache = self._load_address_tags()
+        return self._tags_cache
+
+    def _load_address_tags(self) -> Dict[str, Set[str]]:
+        """주소 태그 파일 로드"""
+        file_path = self.data_dir / "address_tags.json"
+        if not file_path.exists():
+            return {}
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                return {}
+            return {
+                tag: {addr.lower() for addr in addrs}
+                for tag, addrs in data.items()
+                if isinstance(addrs, list)
+            }
+        except Exception:
+            return {}
     
     def _load_json_list(self, filename: str) -> Set[str]:
         """JSON 파일에서 리스트 로드"""
