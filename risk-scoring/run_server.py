@@ -16,20 +16,8 @@ sys.path.insert(0, str(project_root))
 if __name__ == '__main__':
     from api.app import app
     
-    # macOS AirPlay가 5000 포트를 사용하므로 기본적으로 5001 사용
-    import socket
-    port = 5001  # 기본 포트를 5001로 변경 (macOS AirPlay 회피)
-    
-    # 5001도 사용 중이면 5002로 시도
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    result = sock.connect_ex(('127.0.0.1', port))
-    sock.close()
-    if result == 0:
-        print(f"⚠️  포트 {port}가 사용 중입니다. 포트 5002로 변경합니다.")
-        port = 5002
-    else:
-        # 5001 포트 사용 가능 확인
-        print(f"✅ 포트 {port} 사용 가능")
+    # Backend and frontend expect Risk Scoring on this fixed port.
+    port = 5001
     
     print("=" * 70)
     print("🚀 AML Risk Engine API 서버 시작")
@@ -49,5 +37,10 @@ if __name__ == '__main__':
     print(f"   http://localhost:{port}/")
     print()
     
-    app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False)
-
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=False,
+        use_debugger=False,
+        use_reloader=False,
+    )

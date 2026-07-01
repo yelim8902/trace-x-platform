@@ -20,6 +20,21 @@ docs          구조, API, 배포, 문제 해결 문서
 | Backend | 8888 | http://localhost:8888/health |
 | Risk Scoring | 5001 | http://localhost:5001/health |
 
+## 로컬 실행 전제조건
+
+- Python 3.12 권장
+- Node.js/npm
+- Backend는 `eth-abi`가 런타임에 `pkg_resources`를 사용하므로 `setuptools>=61,<81`이 필요합니다.
+
+`./scripts/start-all.sh`는 각 Python 서비스의 `venv`를 만들고 의존성을 설치합니다. 기존 `backend/venv`에서 `ModuleNotFoundError: No module named 'pkg_resources'`가 나면 아래처럼 backend 의존성을 다시 설치합니다.
+
+```bash
+cd backend
+source venv/bin/activate
+pip install -e .
+cd ..
+```
+
 ## 빠른 시작
 
 ```bash

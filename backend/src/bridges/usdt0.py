@@ -1,6 +1,7 @@
 import requests
-import eth_abi
 from typing import Tuple
+
+import eth_abi
 from web3 import Web3
 from src.constants.rpc_urls import URLS as RPC_URLS
 from src.constants.chain_id_mapping import convert_layerzero_to_etherscan_chain_id

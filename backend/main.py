@@ -7,7 +7,13 @@ def main():
         raise ValueError('ETHERSCAN_API_KEY environment variable is required')
 
     app = create_app(api_key=api_key)
-    app.run(host='0.0.0.0', port=8888, debug=True, use_reloader=False)
+    app.run(
+        host='0.0.0.0',
+        port=8888,
+        debug=False,
+        use_debugger=False,
+        use_reloader=False,
+    )
 
 if __name__ == '__main__':
     main()

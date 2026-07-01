@@ -8,6 +8,29 @@ cp .env.example .env
 
 그리고 `ETHERSCAN_API_KEY`를 입력합니다.
 
+## Backend 시작 시 `pkg_resources` 에러가 날 때
+
+증상:
+
+```text
+ModuleNotFoundError: No module named 'pkg_resources'
+```
+
+Backend의 `eth-abi` 의존성이 `pkg_resources`를 사용하지만, 기존 `backend/venv`에 호환되는 `setuptools`가 없을 때 발생합니다. 이 프로젝트는 `setuptools>=61,<81`을 사용합니다. 아래처럼 backend 의존성을 다시 설치합니다.
+
+```bash
+cd backend
+source venv/bin/activate
+pip install -e .
+cd ..
+```
+
+그 다음 다시 실행합니다.
+
+```bash
+./scripts/start-all.sh
+```
+
 ## Backend가 Risk Scoring을 못 찾을 때
 
 로컬 실행에서는 `.env`에 아래 값이 있어야 합니다.
