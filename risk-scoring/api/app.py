@@ -124,4 +124,10 @@ if __name__ == '__main__':
     print("📚 API 문서:")
     print("   GET  http://localhost:5001/api-docs")
     print()
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(
+        host='0.0.0.0',
+        port=5001,
+        debug=False,
+        use_debugger=False,
+        use_reloader=False,
+    )

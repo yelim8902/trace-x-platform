@@ -30,79 +30,116 @@ export RISK_SCORING_API_URL="${RISK_SCORING_API_URL:-http://localhost:5001}"
 
 mkdir -p logs .pids
 
+port_in_use() {
+    lsof -ti:"$1" > /dev/null 2>&1
+}
+
 # ── 1. Risk Scoring API (포트 5001) ──────────────────────────────────────
 echo "[1/3] Risk Scoring API 시작 중 (port 5001)..."
-cd "$ROOT_DIR/risk-scoring"
-
-if [ ! -f venv/bin/activate ]; then
-    echo "  venv 없음 → 생성 중..."
-    python3 -m venv venv
-fi
-source venv/bin/activate
-pip install -q -r requirements.txt
-python run_server.py > "$ROOT_DIR/logs/risk-scoring.log" 2>&1 &
-RISK_PID=$!
-deactivate
-cd "$ROOT_DIR"
-
-# 헬스체크 대기 (최대 15초)
-for i in $(seq 1 15); do
-    sleep 1
-    if curl -sf http://localhost:5001/health > /dev/null 2>&1; then
-        echo "  Risk Scoring API 준비됨 (PID: $RISK_PID)"
-        break
-    fi
-    if [ $i -eq 15 ]; then
-        echo "  ERROR: Risk Scoring API가 시작되지 않았습니다."
-        echo "  로그: tail -f logs/risk-scoring.log"
+if curl -sf http://localhost:5001/health > /dev/null 2>&1; then
+    RISK_PID=$(lsof -ti:5001 | head -n 1)
+    echo "  Risk Scoring API 이미 실행 중 (PID: $RISK_PID)"
+else
+    if port_in_use 5001; then
+        echo "  ERROR: port 5001이 이미 사용 중이지만 /health 응답이 없습니다."
+        echo "  먼저 ./scripts/stop-all.sh 또는 lsof -i :5001 로 점유 프로세스를 확인하세요."
         exit 1
     fi
-done
+
+    cd "$ROOT_DIR/risk-scoring"
+
+    if [ ! -f venv/bin/activate ]; then
+        echo "  venv 없음 → 생성 중..."
+        python3 -m venv venv
+    fi
+    source venv/bin/activate
+    pip install -q -r requirements.txt
+    python run_server.py > "$ROOT_DIR/logs/risk-scoring.log" 2>&1 &
+    RISK_PID=$!
+    deactivate
+    cd "$ROOT_DIR"
+
+    # 헬스체크 대기 (최대 15초)
+    for i in $(seq 1 15); do
+        sleep 1
+        if curl -sf http://localhost:5001/health > /dev/null 2>&1; then
+            echo "  Risk Scoring API 준비됨 (PID: $RISK_PID)"
+            break
+        fi
+        if [ $i -eq 15 ]; then
+            echo "  ERROR: Risk Scoring API가 시작되지 않았습니다."
+            echo "  로그: tail -f logs/risk-scoring.log"
+            exit 1
+        fi
+    done
+fi
 echo ""
 
 # ── 2. Backend API (포트 8888) ────────────────────────────────────────────
 echo "[2/3] Backend API 시작 중 (port 8888)..."
-cd "$ROOT_DIR/backend"
-
-if [ ! -f venv/bin/activate ]; then
-    echo "  venv 없음 → 생성 중..."
-    python3 -m venv venv
-fi
-source venv/bin/activate
-pip install -q -e .
-python main.py > "$ROOT_DIR/logs/backend.log" 2>&1 &
-BACKEND_PID=$!
-deactivate
-cd "$ROOT_DIR"
-
-# 헬스체크 대기 (최대 30초)
-for i in $(seq 1 30); do
-    sleep 1
-    if curl -sf http://localhost:8888/api/dashboard/summary > /dev/null 2>&1; then
-        echo "  Backend API 준비됨 (PID: $BACKEND_PID)"
-        break
-    fi
-    if [ $i -eq 30 ]; then
-        echo "  ERROR: Backend API가 시작되지 않았습니다."
-        echo "  로그: tail -f logs/backend.log"
+if curl -sf http://localhost:8888/health > /dev/null 2>&1; then
+    BACKEND_PID=$(lsof -ti:8888 | head -n 1)
+    echo "  Backend API 이미 실행 중 (PID: $BACKEND_PID)"
+else
+    if port_in_use 8888; then
+        echo "  ERROR: port 8888이 이미 사용 중이지만 /health 응답이 없습니다."
+        echo "  먼저 ./scripts/stop-all.sh 또는 lsof -i :8888 로 점유 프로세스를 확인하세요."
         exit 1
     fi
-done
+
+    cd "$ROOT_DIR/backend"
+
+    if [ ! -f venv/bin/activate ]; then
+        echo "  venv 없음 → 생성 중..."
+        python3 -m venv venv
+    fi
+    source venv/bin/activate
+    pip install -q -e .
+    python main.py > "$ROOT_DIR/logs/backend.log" 2>&1 &
+    BACKEND_PID=$!
+    deactivate
+    cd "$ROOT_DIR"
+
+    # 헬스체크 대기 (최대 30초)
+    for i in $(seq 1 30); do
+        sleep 1
+        if curl -sf http://localhost:8888/health > /dev/null 2>&1; then
+            echo "  Backend API 준비됨 (PID: $BACKEND_PID)"
+            break
+        fi
+        if [ $i -eq 30 ]; then
+            echo "  ERROR: Backend API가 시작되지 않았습니다."
+            echo "  로그: tail -f logs/backend.log"
+            exit 1
+        fi
+    done
+fi
 echo ""
 
 # ── 3. Frontend (포트 5173) ───────────────────────────────────────────────
 echo "[3/3] Frontend 시작 중 (port 5173)..."
-cd "$ROOT_DIR/frontend"
-if [ ! -d node_modules ]; then
-    echo "  node_modules 없음 → npm install 실행 중..."
-    npm install
-fi
-node node_modules/.bin/vite --host 0.0.0.0 > "$ROOT_DIR/logs/frontend.log" 2>&1 &
-FRONTEND_PID=$!
-cd "$ROOT_DIR"
+if curl -sf http://localhost:5173 > /dev/null 2>&1; then
+    FRONTEND_PID=$(lsof -ti:5173 | head -n 1)
+    echo "  Frontend 이미 실행 중 (PID: $FRONTEND_PID)"
+else
+    if port_in_use 5173; then
+        echo "  ERROR: port 5173이 이미 사용 중이지만 Frontend 응답이 없습니다."
+        echo "  먼저 ./scripts/stop-all.sh 또는 lsof -i :5173 로 점유 프로세스를 확인하세요."
+        exit 1
+    fi
 
-sleep 4
-echo "  Frontend 준비됨 (PID: $FRONTEND_PID)"
+    cd "$ROOT_DIR/frontend"
+    if [ ! -d node_modules ]; then
+        echo "  node_modules 없음 → npm install 실행 중..."
+        npm install
+    fi
+    node node_modules/.bin/vite --host 0.0.0.0 > "$ROOT_DIR/logs/frontend.log" 2>&1 &
+    FRONTEND_PID=$!
+    cd "$ROOT_DIR"
+
+    sleep 4
+    echo "  Frontend 준비됨 (PID: $FRONTEND_PID)"
+fi
 echo ""
 
 # PID 저장

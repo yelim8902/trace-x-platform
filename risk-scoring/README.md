@@ -48,7 +48,7 @@ pip install -r requirements.txt
 python3 run_server.py
 ```
 
-서버가 `http://localhost:5001` 또는 `http://localhost:5002`에서 실행됩니다.
+서버가 `http://localhost:5001`에서 실행됩니다. Backend와 Frontend가 이 고정 포트를 사용하므로, 포트 충돌이 나면 기존 프로세스를 종료한 뒤 다시 실행합니다.
 
 ### 4. API 문서 확인
 

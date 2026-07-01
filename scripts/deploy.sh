@@ -87,10 +87,10 @@ else
 fi
 
 # Backend API
-if curl -f -s http://localhost:8888/api/dashboard/summary > /dev/null 2>&1; then
+if curl -f -s http://localhost:8888/health > /dev/null 2>&1; then
     echo "✅ Backend API (포트 8888): 정상"
 else
-    echo "⚠️  Backend API (포트 8888): 응답 없음 (일부 엔드포인트는 404가 정상)"
+    echo "❌ Backend API (포트 8888): 응답 없음"
 fi
 
 # Frontend
@@ -125,4 +125,3 @@ echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     docker-compose -f docker-compose.prod.yml logs -f
 fi
-

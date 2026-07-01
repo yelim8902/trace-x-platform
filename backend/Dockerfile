@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
 COPY pyproject.toml ./
 
 # Install Python dependencies
-RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel && \
+RUN pip3 install --no-cache-dir --upgrade pip "setuptools<81" wheel && \
     pip3 install --no-cache-dir -e . && \
     pip3 install --no-cache-dir \
     python-dotenv \
@@ -25,10 +25,6 @@ RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel && \
     pymysql \
     cryptography \
     gunicorn
-
-# Patch getargspec compatibility issue for Python 3.12
-RUN find /usr/local/lib/python3.12 -type f -name "*.py" \
-    -exec sed -i 's/from inspect import getargspec/from inspect import getargs/g' {} + || true
 
 # Copy application code
 COPY . .
