@@ -1,8 +1,5 @@
-from ..extensions import db 
-from datetime import datetime
 from datetime import datetime
 
-from datetime import datetime
 from ..extensions import db
 
 class RawTransaction(db.Model):

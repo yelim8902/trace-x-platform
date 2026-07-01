@@ -18,7 +18,11 @@ export async function getFundFlow(
     });
 
     if (!res.ok) {
-      throw new Error(`HTTP Error: ${res.status}`);
+      const errorBody = await res.json().catch(() => null);
+      throw new Error(
+        errorBody?.error ||
+          `Backend fund-flow API 요청이 실패했습니다. (HTTP ${res.status})`
+      );
     }
 
     const json = await res.json();
@@ -60,11 +64,21 @@ export async function getFundFlow(
       }
     }
 
-    // API 응답이 비어 있으면 null
     console.warn("getFundFlow: 데이터가 없습니다.", json);
-    return null;
+    return {
+      nodes: [],
+      edges: [],
+    };
   } catch (error) {
     console.error("getFundFlow Error:", error);
-    return null;
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Backend 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
+    }
+    if (error instanceof TypeError) {
+      throw new Error(
+        "Backend API에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요."
+      );
+    }
+    throw error;
   }
 }
