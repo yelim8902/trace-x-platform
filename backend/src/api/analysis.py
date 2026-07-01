@@ -207,17 +207,20 @@ class Analyzer:
     def _classify_tx_type(self, tx: Dict[str, Any], action: str) -> str:
         input_data = tx['input']
         method_id = tx['methodId']
+        function_name = tx.get('functionName', '').lower()
 
         if action == "tokentx":
-            if method_id == Methods.ERC20_TRANSFER:
+            if tx.get('contractAddress') and tx.get('tokenSymbol'):
                 return TxTypes.ERC20_TRANSFER
         elif action == "txlist":
             if input_data == '0x':
                 return TxTypes.NATIVE
 
-        if method_id in SWAP_METHODS:
+        if method_id in SWAP_METHODS or 'swap' in function_name:
             return TxTypes.SWAP
         elif method_id in BRIDGE_METHODS:
             return TxTypes.BRIDGE
+        elif int(tx.get('value', '0')) > 0:
+            return TxTypes.NATIVE
 
         return TxTypes.UNKNOWN
