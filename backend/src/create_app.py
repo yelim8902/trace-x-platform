@@ -46,6 +46,7 @@ def _initialize_extensions(app: Flask):
 
     with app.app_context():
         try:
+            from src.visualizing_data import models  # noqa: F401
             db.create_all()
         except Exception as e:
             print(f'⚠️  DB 초기화 실패 (집계 기능 비활성화): {e}')

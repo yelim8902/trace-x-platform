@@ -28,8 +28,12 @@ def update_dune_cache_if_needed():
         if elapsed < 300:
             return
 
-    # Dune 호출
-    totals = get_total_data()  # 여기서 Dune API 실제로 부름
+    try:
+        totals = get_total_data()
+    except Exception as e:
+        print(f"⚠️ Dune cache update failed: {e}")
+        DUNE_CACHE["last_updated"] = now_kst
+        return
 
     DUNE_CACHE["data"]["totalVolume"] = totals["totalVolume"]
     DUNE_CACHE["data"]["totalTransactions"] = totals["totalTransactions"]
@@ -155,7 +159,12 @@ def dashboard():
     
     # 1년치 데이터 조회
     one_year_ago = now_kst - timedelta(days=370)
-    aggregates = RiskAggregate.query.filter(RiskAggregate.timestamp >= one_year_ago).all()
+    try:
+        aggregates = RiskAggregate.query.filter(RiskAggregate.timestamp >= one_year_ago).all()
+    except Exception as e:
+        print(f"⚠️ Dashboard aggregate query failed: {e}")
+        db.session.rollback()
+        aggregates = []
     avg_temp_map = {k: {"sum": 0, "cnt": 0} for k in TIME_ORDER}
     today_start = now_kst.replace(hour=0, minute=0, second=0, microsecond=0)
     for agg in aggregates:
@@ -230,10 +239,15 @@ def dashboard():
 
     # --- D. Top Cards (오늘의 경고/위험 건수) ---
     today_start = now_kst.replace(hour=0, minute=0, second=0, microsecond=0)
-    stats_today = db.session.query(
-        func.sum(RiskAggregate.warning_tx_count),
-        func.sum(RiskAggregate.high_risk_tx_count)
-    ).filter(RiskAggregate.timestamp >= today_start).first()
+    try:
+        stats_today = db.session.query(
+            func.sum(RiskAggregate.warning_tx_count),
+            func.sum(RiskAggregate.high_risk_tx_count)
+        ).filter(RiskAggregate.timestamp >= today_start).first()
+    except Exception as e:
+        print(f"⚠️ Dashboard today stats query failed: {e}")
+        db.session.rollback()
+        stats_today = (0, 0)
     
     final_warning = (stats_today[0] or 0) + buffer_manager.buffer['warning_count']
     final_high = (stats_today[1] or 0) + buffer_manager.buffer['high_risk_count']
