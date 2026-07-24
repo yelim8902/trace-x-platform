@@ -6,7 +6,6 @@ from flask_cors import CORS
 from flasgger import Swagger
 from api.routes.scoring import scoring_bp
 from api.routes.address_analysis import address_analysis_bp
-from api.routes.demo_analysis import demo_analysis_bp  # 데모 페이지
 
 app = Flask(__name__)
 CORS(app)  # CORS 허용 (프론트엔드에서 호출 가능)
@@ -77,7 +76,6 @@ swagger = Swagger(app, config=swagger_config, template=swagger_template)
 # Blueprint 등록
 app.register_blueprint(scoring_bp, url_prefix="/api/score")
 app.register_blueprint(address_analysis_bp, url_prefix="/api/analyze")
-app.register_blueprint(demo_analysis_bp, url_prefix="/api/analyze")  # 데모 분석
 
 
 @app.route('/health', methods=['GET'])
