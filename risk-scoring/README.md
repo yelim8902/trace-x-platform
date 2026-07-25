@@ -522,7 +522,7 @@ curl -X POST http://localhost:5001/api/score/transaction \
 
 ## 라이선스
 
-MIT License
+CC BY-NC-SA 4.0 (Attribution-NonCommercial-ShareAlike) — 저장소 루트의 [`LICENSE`](LICENSE) 파일 참고. 상업적 이용은 허용되지 않습니다.
 
 ---
 
