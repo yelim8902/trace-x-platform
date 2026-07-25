@@ -190,6 +190,7 @@ export default function AdhocPage() {
   const [nodeDetails, setNodeDetails] =
     useState<AddressAnalysisResponse | null>(null);
   const [isDeepAnalysis, setIsDeepAnalysis] = useState(false); // 심층분석 여부
+  const [expandedRules, setExpandedRules] = useState<Set<number>>(new Set()); // 발동된 룰 중 펼쳐진 것
   const [showTestAddresses, setShowTestAddresses] = useState(false); // 테스트 주소 드롭다운 표시 여부
   const testAddressesRef = useRef<HTMLDivElement>(null); // 테스트 주소 드롭다운 ref
 
@@ -570,6 +571,47 @@ export default function AdhocPage() {
     }
   };
 
+  // 룰북 축(C/E/B) 라벨 — tracex_rules.yaml meta.description 참고
+  const getAxisLabel = (axis?: string) => {
+    switch (axis) {
+      case "C":
+        return "Compliance · 법령 임계값";
+      case "E":
+        return "Exposure · 외부 리스트 노출";
+      case "B":
+        return "Behavior · 행동/토폴로지 패턴";
+      default:
+        return axis || "";
+    }
+  };
+
+  const toggleRuleExpanded = (idx: number) => {
+    setExpandedRules((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      return next;
+    });
+  };
+
+  // "[룰 판단] ... [ML 판단] ... [종합] ..." 형태의 combined_explanation을 3부분으로 분해
+  const parseCombinedExplanation = (text?: string) => {
+    if (!text) return null;
+    const match = {
+      rule: text.match(/\[룰 판단\]\s*([\s\S]*?)(?=\[ML 판단\]|\[종합\]|$)/),
+      ml: text.match(/\[ML 판단\]\s*([\s\S]*?)(?=\[종합\]|$)/),
+      summary: text.match(/\[종합\]\s*([\s\S]*)$/),
+    };
+    return {
+      rule: match.rule?.[1]?.trim() ?? "",
+      ml: match.ml?.[1]?.trim() ?? "",
+      summary: match.summary?.[1]?.trim() ?? "",
+    };
+  };
+
   return (
     <S.Root>
       {/* 헤더 */}
@@ -684,13 +726,14 @@ export default function AdhocPage() {
                 border: "1px solid rgba(59, 130, 246, 0.3)",
                 borderRadius: "8px",
                 padding: "12px",
-                minWidth: "300px",
+                minWidth: "340px",
+                maxWidth: "380px",
                 zIndex: 1000,
                 boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
               }}
             >
-              {/* 기본 테스트 주소 */}
-              <div style={{ marginBottom: "12px" }}>
+              {/* 탐지 시나리오 — 실제 검증된 주소로 우리 시스템이 뭘 잡아내는지 보여줌 */}
+              <div>
                 <div
                   style={{
                     fontSize: "11px",
@@ -701,228 +744,99 @@ export default function AdhocPage() {
                     letterSpacing: "0.5px",
                   }}
                 >
-                  기본 테스트 주소
+                  탐지 시나리오
                 </div>
                 <div
                   style={{
                     display: "flex",
                     flexDirection: "column",
-                    gap: "6px",
+                    gap: "10px",
                   }}
                 >
-                  <button
-                    onClick={() => {
-                      setAddress("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
-                      setAnalysisMode("address");
-                      setShowTestAddresses(false);
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#60a5fa",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "12px",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background =
-                        "rgba(59, 130, 246, 0.1)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "none";
-                    }}
-                  >
-                    Vitalik Buterin
-                  </button>
-                  <button
-                    onClick={() => {
-                      setAddress("0x28C6c06298d514Db089934071355E5743bf21d60");
-                      setAnalysisMode("address");
-                      setShowTestAddresses(false);
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#60a5fa",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "12px",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background =
-                        "rgba(59, 130, 246, 0.1)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "none";
-                    }}
-                  >
-                    Binance Hot Wallet
-                  </button>
-                </div>
-              </div>
-
-              {/* 룰 테스트용 주소 */}
-              <div
-                style={{
-                  borderTop: "1px solid rgba(59, 130, 246, 0.2)",
-                  paddingTop: "12px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    color: "#94a3b8",
-                    marginBottom: "8px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                  }}
-                >
-                  룰 테스트용 주소
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "8px",
-                  }}
-                >
-                  <div>
-                    <span style={{ color: "#9ca3af", fontSize: "11px" }}>
-                      믹서:
-                    </span>
+                  {[
+                    {
+                      address: "0x09278b36863be4ccd3d0c22d643e8062d7a11377",
+                      name: "Bybit 해킹 (2025)",
+                      badge: "ML 탐지",
+                      badgeColor: "#f87171",
+                      desc: "실제 역대 최대 규모 해킹 관련 주소 — 룰은 medium인데 ML이 fan-in/이상행동 패턴으로 critical 판단",
+                    },
+                    {
+                      address: "0x8589427373D6D84E98730D7795D8f6f8731FDA16",
+                      name: "Tornado Cash",
+                      badge: "게이팅 발동",
+                      badgeColor: "#facc15",
+                      desc: "OFAC 제재 대상 믹서 — C-001/E-101 룰과 ML 전부 critical로 일치, 게이팅이 최우선 처리 신호를 보냄",
+                    },
+                    {
+                      address: "0x3f5CE5FBFe3E9af3971dD833D26bA9b5C936f0bE",
+                      name: "Binance 핫월렛",
+                      badge: "오탐 사례",
+                      badgeColor: "#94a3b8",
+                      desc: "정상 거래소 지갑인데 fan-in이 원래 많아서 ML이 critical로 오판 — 모델의 알려진 한계",
+                    },
+                  ].map((item) => (
                     <button
+                      key={item.address}
                       onClick={() => {
-                        setAddress(
-                          "0x8589427373D6D84E98730D7795D8f6f8731FDA16"
-                        );
+                        setAddress(item.address);
                         setAnalysisMode("address");
                         setShowTestAddresses(false);
                       }}
                       style={{
-                        background: "none",
-                        border: "none",
-                        color: "#60a5fa",
+                        background: "rgba(255, 255, 255, 0.02)",
+                        border: "1px solid rgba(255, 255, 255, 0.06)",
                         cursor: "pointer",
-                        marginLeft: "8px",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
+                        textAlign: "left",
+                        padding: "8px 10px",
+                        borderRadius: "6px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "4px",
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background =
                           "rgba(59, 130, 246, 0.1)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "none";
-                      }}
-                    >
-                      Tornado Cash
-                    </button>
-                  </div>
-                  <div>
-                    <span style={{ color: "#9ca3af", fontSize: "11px" }}>
-                      브릿지:
-                    </span>
-                    <button
-                      onClick={() => {
-                        setAddress(
-                          "0x3666f603Cc164936C1b87e207F36BEBa4AC5f18a"
-                        );
-                        setAnalysisMode("address");
-                        setShowTestAddresses(false);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#60a5fa",
-                        cursor: "pointer",
-                        marginLeft: "8px",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                      }}
-                      onMouseEnter={(e) => {
                         e.currentTarget.style.background =
-                          "rgba(59, 130, 246, 0.1)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "none";
+                          "rgba(255, 255, 255, 0.02)";
                       }}
                     >
-                      Hop Protocol
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: "#60a5fa",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {item.name}
+                        </span>
+                        <span
+                          style={{
+                            color: item.badgeColor,
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            border: `1px solid ${item.badgeColor}55`,
+                            borderRadius: "4px",
+                            padding: "1px 6px",
+                          }}
+                        >
+                          {item.badge}
+                        </span>
+                      </div>
+                      <div style={{ color: "#9ca3af", fontSize: "11px", lineHeight: 1.4 }}>
+                        {item.desc}
+                      </div>
                     </button>
-                  </div>
-                  <div>
-                    <span style={{ color: "#9ca3af", fontSize: "11px" }}>
-                      CEX:
-                    </span>
-                    <button
-                      onClick={() => {
-                        setAddress(
-                          "0x3f5CE5FBFe3E9af3971dD833D26bA9b5C936f0bE"
-                        );
-                        setAnalysisMode("address");
-                        setShowTestAddresses(false);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#60a5fa",
-                        cursor: "pointer",
-                        marginLeft: "8px",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background =
-                          "rgba(59, 130, 246, 0.1)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "none";
-                      }}
-                    >
-                      Binance
-                    </button>
-                  </div>
-                  <div>
-                    <span style={{ color: "#9ca3af", fontSize: "11px" }}>
-                      DEX:
-                    </span>
-                    <button
-                      onClick={() => {
-                        setAddress(
-                          "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
-                        );
-                        setAnalysisMode("address");
-                        setShowTestAddresses(false);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#60a5fa",
-                        cursor: "pointer",
-                        marginLeft: "8px",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background =
-                          "rgba(59, 130, 246, 0.1)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "none";
-                      }}
-                    >
-                      Uniswap V2
-                    </button>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1076,9 +990,23 @@ export default function AdhocPage() {
                     })()}
                   </S.DetailSection>
 
-                  {/* 리스크 점수 */}
+                  {/* 게이팅 경고 — 컴플라이언스 룰(제재/믹서 직접 노출) 발동 시
+                      아래 룰/ML 점수와 무관하게 최우선 처리가 필요함을 알림 */}
+                  {nodeDetails.gating?.triggered && (
+                    <S.GatingBanner>
+                      <S.GatingBannerTitle>
+                        ⚠ 컴플라이언스 게이팅 발동
+                      </S.GatingBannerTitle>
+                      <S.GatingBannerText>
+                        {nodeDetails.gating.rule_ids.join(", ")} 룰이 발동되어,
+                        아래 리스크 점수와 무관하게 최우선 검토가 필요합니다.
+                      </S.GatingBannerText>
+                    </S.GatingBanner>
+                  )}
+
+                  {/* 리스크 점수 (룰 트랙) */}
                   <S.DetailSection>
-                    <S.DetailLabel>리스크 점수</S.DetailLabel>
+                    <S.DetailLabel>리스크 점수 (룰 기반)</S.DetailLabel>
                     <S.RiskScore
                       style={{
                         color: getRiskColor(nodeDetails.risk_level),
@@ -1109,21 +1037,148 @@ export default function AdhocPage() {
                       </S.DetailSection>
                     )}
 
-                  {/* 발동된 룰 */}
+                  {/* 발동된 룰 — 클릭하면 룰 설명/법적 근거 펼쳐짐 */}
                   {nodeDetails.fired_rules &&
                     nodeDetails.fired_rules.length > 0 && (
                       <S.DetailSection>
-                        <S.DetailLabel>발동된 룰</S.DetailLabel>
+                        <S.DetailLabel>발동된 룰 (클릭하면 근거 확인)</S.DetailLabel>
                         <S.RuleList>
-                          {nodeDetails.fired_rules.map((rule, idx) => (
-                            <S.RuleItem key={idx}>
-                              <span style={{ fontWeight: 600 }}>
-                                {rule.rule_id}
-                              </span>
-                              <span style={{ color: "#9ca3af" }}>
-                                +{rule.score.toFixed(1)}점
-                              </span>
-                            </S.RuleItem>
+                          {nodeDetails.fired_rules.map((rule, idx) => {
+                            const isOpen = expandedRules.has(idx);
+                            return (
+                              <S.RuleItem
+                                key={idx}
+                                onClick={() => toggleRuleExpanded(idx)}
+                                style={{
+                                  cursor: "pointer",
+                                  flexDirection: "column",
+                                  alignItems: "stretch",
+                                  gap: isOpen ? "6px" : "0",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    width: "100%",
+                                  }}
+                                >
+                                  <span>
+                                    <span style={{ fontWeight: 600 }}>
+                                      {rule.rule_id}
+                                    </span>
+                                    {rule.name && (
+                                      <span
+                                        style={{
+                                          color: "#9ca3af",
+                                          marginLeft: "6px",
+                                        }}
+                                      >
+                                        {rule.name}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "6px",
+                                    }}
+                                  >
+                                    <span style={{ color: "#9ca3af" }}>
+                                      +{rule.score.toFixed(1)}점
+                                    </span>
+                                    <span style={{ color: "#6b7280", fontSize: "10px" }}>
+                                      {isOpen ? "▲" : "▼"}
+                                    </span>
+                                  </span>
+                                </div>
+                                {isOpen && (
+                                  <S.RuleDetailBox>
+                                    <div style={{ display: "flex", gap: "6px", marginBottom: "4px" }}>
+                                      {rule.axis && (
+                                        <S.RuleAxisBadge>
+                                          {getAxisLabel(rule.axis)}
+                                        </S.RuleAxisBadge>
+                                      )}
+                                      {rule.severity && (
+                                        <S.RuleAxisBadge style={{ opacity: 0.8 }}>
+                                          {rule.severity}
+                                        </S.RuleAxisBadge>
+                                      )}
+                                    </div>
+                                    {rule.description && (
+                                      <div style={{ marginBottom: "4px" }}>{rule.description}</div>
+                                    )}
+                                    {rule.legal_basis && (
+                                      <div style={{ color: "#9ca3af", fontSize: "11px" }}>
+                                        {rule.legal_basis}
+                                      </div>
+                                    )}
+                                  </S.RuleDetailBox>
+                                )}
+                              </S.RuleItem>
+                            );
+                          })}
+                        </S.RuleList>
+                      </S.DetailSection>
+                    )}
+
+                  {/* ML 리스크 점수 (룰 트랙과 별도 병렬 표시 — 하나의 숫자로 블렌딩하지 않음) */}
+                  {nodeDetails.ml?.ml_score != null &&
+                    nodeDetails.ml.ml_risk_level && (
+                      <S.DetailSection>
+                        <S.DetailLabel>리스크 점수 (ML 기반)</S.DetailLabel>
+                        <S.RiskScore
+                          style={{
+                            color: getRiskColor(nodeDetails.ml.ml_risk_level),
+                            fontSize: "24px",
+                          }}
+                        >
+                          {nodeDetails.ml.ml_score.toFixed(1)} / 100
+                        </S.RiskScore>
+                        <S.RiskLevel
+                          style={{
+                            background: `${getRiskColor(
+                              nodeDetails.ml.ml_risk_level
+                            )}20`,
+                            color: getRiskColor(nodeDetails.ml.ml_risk_level),
+                          }}
+                        >
+                          {nodeDetails.ml.ml_risk_level.toUpperCase()}
+                        </S.RiskLevel>
+                      </S.DetailSection>
+                    )}
+
+                  {/* ML 판단 근거 (SHAP 기반 주요 피처 3개) */}
+                  {nodeDetails.ml?.ml_top_features &&
+                    nodeDetails.ml.ml_top_features.length > 0 && (
+                      <S.DetailSection>
+                        <S.DetailLabel>ML 판단 근거</S.DetailLabel>
+                        <S.RuleList>
+                          {nodeDetails.ml.ml_top_features.map((f, idx) => (
+                            <S.MLFeatureItem key={idx}>
+                              <S.MLFeatureHeader>
+                                <span>{f.feature}</span>
+                                <span
+                                  style={{
+                                    color:
+                                      f.direction === "increases_risk"
+                                        ? "#f87171"
+                                        : "#4ade80",
+                                  }}
+                                >
+                                  {f.direction === "increases_risk"
+                                    ? "▲"
+                                    : "▼"}{" "}
+                                  {f.shap_value.toFixed(2)}
+                                </span>
+                              </S.MLFeatureHeader>
+                              <S.MLFeatureExplanation>
+                                {f.explanation}
+                              </S.MLFeatureExplanation>
+                            </S.MLFeatureItem>
                           ))}
                         </S.RuleList>
                       </S.DetailSection>
@@ -1190,13 +1245,54 @@ export default function AdhocPage() {
                     return null;
                   })()}
 
-                  {/* 설명 */}
-                  {nodeDetails.explanation && (
-                    <S.DetailSection>
-                      <S.DetailLabel>상세 설명</S.DetailLabel>
-                      <S.DetailValue>{nodeDetails.explanation}</S.DetailValue>
-                    </S.DetailSection>
-                  )}
+                  {/* 종합 판단 — 룰 판단 + ML 판단 + 권장 조치 (점수는 안 섞고 텍스트만 병기) */}
+                  {(() => {
+                    const parsed = parseCombinedExplanation(
+                      nodeDetails.combined_explanation
+                    );
+                    if (!parsed) {
+                      // 구버전 응답 호환 — combined_explanation이 없으면 기존 룰 설명만 표시
+                      return (
+                        nodeDetails.explanation && (
+                          <S.DetailSection>
+                            <S.DetailLabel>상세 설명</S.DetailLabel>
+                            <S.DetailValue>
+                              {nodeDetails.explanation}
+                            </S.DetailValue>
+                          </S.DetailSection>
+                        )
+                      );
+                    }
+                    return (
+                      <S.DetailSection>
+                        <S.DetailLabel>종합 판단</S.DetailLabel>
+                        <S.JudgmentBox>
+                          {parsed.rule && (
+                            <S.JudgmentRow>
+                              <S.JudgmentTag $tone="rule">룰</S.JudgmentTag>
+                              <span>{parsed.rule}</span>
+                            </S.JudgmentRow>
+                          )}
+                          {parsed.ml && (
+                            <S.JudgmentRow>
+                              <S.JudgmentTag $tone="ml">ML</S.JudgmentTag>
+                              <span>{parsed.ml}</span>
+                            </S.JudgmentRow>
+                          )}
+                          {parsed.summary && (
+                            <S.JudgmentRow style={{ marginTop: "2px" }}>
+                              <S.JudgmentTag $tone="summary">
+                                종합
+                              </S.JudgmentTag>
+                              <span style={{ fontWeight: 600 }}>
+                                {parsed.summary}
+                              </span>
+                            </S.JudgmentRow>
+                          )}
+                        </S.JudgmentBox>
+                      </S.DetailSection>
+                    );
+                  })()}
 
                   {/* 버튼 영역 (맨 아래) */}
                   <div

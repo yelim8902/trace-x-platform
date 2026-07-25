@@ -253,9 +253,16 @@ class AddressAnalyzer:
     ) -> List[Dict[str, Any]]:
         """
         발동된 룰 집계 (중복 제거 및 카운트)
-        
-        기존 JSON 포맷에 맞춰 {rule_id, score} 형태로 반환
+
+        예전엔 axis/name/severity를 내부적으로 계산해놓고도 반환 직전에
+        {rule_id, score}로 잘라버렸음(api/test_address_analysis.py가 name/count
+        키를 기대하다 KeyError 나던 원인). 프론트에서 발동된 룰 클릭 시
+        설명/법적 근거를 보여줄 수 있도록 룰북 메타데이터까지 채워서 반환.
         """
+        from ..rules.loader import RuleLoader
+        rule_loader = RuleLoader()
+        rule_map = {r.get("id"): r for r in rule_loader.get_rules() if r.get("id")}
+
         rule_counts = defaultdict(lambda: {
             "count": 0,
             "score": 0,
@@ -263,26 +270,32 @@ class AddressAnalyzer:
             "name": "",
             "severity": ""
         })
-        
+
         for rule in all_fired_rules:
             rule_id = rule.get("rule_id")
             if not rule_id:
                 continue
-            
+
             rule_counts[rule_id]["count"] += 1
             rule_counts[rule_id]["score"] = rule.get("score", 0)
             rule_counts[rule_id]["axis"] = rule.get("axis", "B")
             rule_counts[rule_id]["name"] = rule.get("name", rule_id)
             rule_counts[rule_id]["severity"] = rule.get("severity", "MEDIUM")
-        
-        # 기존 JSON 포맷에 맞춰 {rule_id, score} 형태로 반환
-        return [
-            {
+
+        result = []
+        for rule_id, info in rule_counts.items():
+            rulebook_entry = rule_map.get(rule_id, {})
+            result.append({
                 "rule_id": rule_id,
-                "score": int(info["score"])  # 정수로 변환
-            }
-            for rule_id, info in rule_counts.items()
-        ]
+                "score": int(info["score"]),
+                "count": info["count"],
+                "name": info["name"],
+                "axis": info["axis"],
+                "severity": info["severity"],
+                "description": rulebook_entry.get("description", ""),
+                "legal_basis": rulebook_entry.get("legal_basis", "").strip(),
+            })
+        return result
     
     def _generate_risk_tags(
         self,
@@ -315,6 +328,10 @@ class AddressAnalyzer:
                 tags.add("cex_inflow")
             if "burst" in rule_name or "B-101" in rule_id or "B-102" in rule_id:
                 tags.add("suspicious_pattern")
+            if "fan-out" in rule_name or "B-203" in rule_id:
+                tags.add("fan_out_pattern")
+            if "fan-in" in rule_name or "B-204" in rule_id:
+                tags.add("fan_in_pattern")
         
         return sorted(list(tags))
     

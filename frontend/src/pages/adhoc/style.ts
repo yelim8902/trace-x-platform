@@ -378,6 +378,123 @@ export const RuleItem = styled.div`
   }
 `;
 
+// ML 트랙 (룰 트랙과 별도 병렬 표시 — docs/GATING_INTEGRATION.md)
+export const MLFeatureItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--secondary200, #343b4f);
+  border-radius: 8px;
+  font-family: "Mona Sans";
+`;
+
+export const MLFeatureHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--white, #fff);
+`;
+
+export const MLFeatureExplanation = styled.div`
+  font-size: 12px;
+  color: var(--primary400, #aeb9e1);
+  line-height: 1.5;
+`;
+
+// 게이팅 배너 (컴플라이언스 룰 발동 시 룰/ML 점수와 무관하게 최우선 처리 신호)
+export const GatingBanner = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.5);
+  border-radius: 8px;
+  margin-bottom: 24px;
+`;
+
+export const GatingBannerTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fca5a5;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: "Mona Sans";
+`;
+
+export const GatingBannerText = styled.div`
+  font-size: 12px;
+  color: #fecaca;
+  line-height: 1.5;
+  font-family: "Mona Sans";
+`;
+
+// 발동된 룰 클릭 시 펼쳐지는 설명/법적 근거 박스
+export const RuleDetailBox = styled.div`
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--secondary200, #343b4f);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--white, #fff);
+  line-height: 1.5;
+  font-family: "Mona Sans";
+`;
+
+export const RuleAxisBadge = styled.span`
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+`;
+
+// 종합 판단 (룰 판단 + ML 판단 + 권장 조치)
+export const JudgmentBox = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--secondary200, #343b4f);
+  border-radius: 8px;
+  padding: 10px 12px;
+`;
+
+export const JudgmentRow = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--white, #fff);
+  line-height: 1.5;
+  font-family: "Mona Sans";
+`;
+
+export const JudgmentTag = styled.span<{ $tone: "rule" | "ml" | "summary" }>`
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 1px;
+  ${({ $tone }) =>
+    $tone === "rule"
+      ? `background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3);`
+      : $tone === "ml"
+      ? `background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3);`
+      : `background: rgba(250, 204, 21, 0.15); color: #facc15; border: 1px solid rgba(250, 204, 21, 0.3);`}
+`;
+
 // 기존 컴포넌트 (호환성 유지)
 export const CenterBox = styled.div`
   position: absolute;

@@ -26,6 +26,8 @@ networkx>=3.3
 # 머신러닝 (필수 - stage2_scorer.py에서 사용)
 # ============================================
 scikit-learn>=1.3.0
+joblib>=1.3.0  # 모델 아티팩트 저장/로드
+shap>=0.45.0  # 모델 해석 (9단계, MODEL_INTERPRETATION.md)
 # 
 # PyTorch (필요시)
 # torch>=2.3.0

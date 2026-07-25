@@ -60,7 +60,9 @@ class RuleEvaluator:
         lists = self.list_loader.get_all_lists()
         
         # 트랜잭션 히스토리에 추가 (윈도우 평가를 위해)
-        target_address = tx_data.get("to") or tx_data.get("target_address")
+        # target_address를 우선한다 — "to"를 우선하면 송신(outgoing) 거래는 상대방
+        # 주소로 히스토리가 쪼개져서, 분석 대상 주소 자신의 버스트/윈도우 집계가 누락된다.
+        target_address = tx_data.get("target_address") or tx_data.get("to")
         if target_address:
             self.window_evaluator.history.add_transaction(target_address, tx_data)
         
@@ -461,7 +463,7 @@ class RuleEvaluator:
         Returns:
             룰 발동 여부
         """
-        target_address = tx_data.get("to") or tx_data.get("target_address", "")
+        target_address = tx_data.get("target_address", "") or tx_data.get("to")
         if not target_address:
             return False
         
@@ -533,7 +535,7 @@ class RuleEvaluator:
                 if "min_edges" in prereq:
                     min_edges = prereq["min_edges"]
                     # 트랜잭션 히스토리에서 거래 수 확인
-                    target_address = tx_data.get("to") or tx_data.get("target_address", "")
+                    target_address = tx_data.get("target_address", "") or tx_data.get("to")
                     if target_address:
                         history = self.window_evaluator.history
                         address_history = history._history.get(target_address.lower(), [])
@@ -545,7 +547,7 @@ class RuleEvaluator:
                             return False  # Prerequisites 불만족
         
         # 통계 계산
-        target_address = tx_data.get("to") or tx_data.get("target_address", "")
+        target_address = tx_data.get("target_address", "") or tx_data.get("to")
         if not target_address:
             return False
         
@@ -583,7 +585,7 @@ class RuleEvaluator:
         Returns:
             룰 발동 여부
         """
-        target_address = tx_data.get("to") or tx_data.get("target_address", "")
+        target_address = tx_data.get("target_address", "") or tx_data.get("to")
         if not target_address:
             return False
         
@@ -629,7 +631,7 @@ class RuleEvaluator:
                 field = spec.get("field")
                 value = spec.get("value")
                 tx_value = tx_data.get(field, 0)
-                
+
                 if op == "gte":
                     return float(tx_value) >= float(value)
                 elif op == "lte":
@@ -641,7 +643,34 @@ class RuleEvaluator:
                 elif op == "eq":
                     return tx_value == value
 
+        # tag: 주소 태그 확인 (예: CEX_INTERNAL, MM_BOT — data/lists/address_tags.json)
+        if "tag" in condition:
+            spec = condition["tag"]
+            key = spec.get("key")
+            expected = spec.get("equals", True)
+            if not key:
+                return False
+
+            field = spec.get("field", "address")
+            address = self._resolve_tag_address(tx_data, field)
+            if not address:
+                return False
+
+            tagged_addresses = lists.get(key, set())
+            is_tagged = address.lower() in tagged_addresses
+            return is_tagged == bool(expected)
+
         return False
+
+    def _resolve_tag_address(self, tx_data: Dict[str, Any], field: str) -> str:
+        """
+        tag 조건의 field를 실제 주소 값으로 변환.
+        "address"는 윈도우/버킷이 그룹화하는 대상 주소(target_address/to)를 가리키는
+        관례적 이름이라 tx_data에 그대로 없는 키이므로 별도로 매핑한다.
+        """
+        if field == "address":
+            return str(tx_data.get("target_address") or tx_data.get("to") or "")
+        return str(tx_data.get(field, ""))
 
     def _evaluate_lifecycle_rule(
         self,
@@ -654,7 +683,7 @@ class RuleEvaluator:
         transaction history에서 생명주기 메트릭을 계산해 tx_data에 주입한 뒤
         기존 _check_conditions()로 평가한다.
         """
-        target_address = tx_data.get("to") or tx_data.get("target_address", "")
+        target_address = tx_data.get("target_address", "") or tx_data.get("to")
         if not target_address:
             return False
 
@@ -697,7 +726,7 @@ class RuleEvaluator:
         if kst_hour >= 6:
             return False  # 심야 시간대가 아님
 
-        target = tx_data.get("to") or tx_data.get("target_address", "")
+        target = tx_data.get("target_address", "") or tx_data.get("to")
         if not target:
             return False
 
@@ -734,7 +763,7 @@ class RuleEvaluator:
         if not (6000.0 <= usd <= 7499.0):
             return False
 
-        target = tx_data.get("from") or tx_data.get("target_address", "")
+        target = tx_data.get("target_address", "") or tx_data.get("from")
         if not target:
             return False
 
@@ -776,7 +805,7 @@ class RuleEvaluator:
         if usd < 500.0:
             return False
 
-        target = tx_data.get("to") or tx_data.get("target_address", "")
+        target = tx_data.get("target_address", "") or tx_data.get("to")
         if not target:
             return False
 
@@ -820,7 +849,7 @@ class RuleEvaluator:
         if not (5000.0 <= usd <= 7499.0):
             return False
 
-        target = tx_data.get("from") or tx_data.get("target_address", "")
+        target = tx_data.get("target_address", "") or tx_data.get("from")
         if not target:
             return False
 
@@ -848,7 +877,7 @@ class RuleEvaluator:
     def _evaluate_rapid_consolidation(self, tx_data: Dict[str, Any], rule: Dict[str, Any]) -> bool:
         """C-006: 1시간 내 3개+ 출처 수취 후 80%+ 즉시 이체"""
         usd = float(tx_data.get("usd_value", 0))
-        target = tx_data.get("to") or tx_data.get("target_address", "")
+        target = tx_data.get("target_address", "") or tx_data.get("to")
         if not target or usd < 200:
             return False
 

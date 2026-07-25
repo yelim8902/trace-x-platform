@@ -265,6 +265,34 @@ export default function ReportPage() {
                   {analysisResult.risk_level || "low"}
                 </S.RiskBadge>
               </S.AnalysisRow>
+              {/* ML 점수 — 룰 기반 리스크 점수와 별도 병렬 표시 */}
+              {analysisResult.ml?.ml_score != null &&
+                analysisResult.ml.ml_risk_level && (
+                  <S.AnalysisRow>
+                    <S.AnalysisLabel>ML 점수:</S.AnalysisLabel>
+                    <S.AnalysisValue>
+                      {analysisResult.ml.ml_score.toFixed(1)}
+                    </S.AnalysisValue>
+                    <S.RiskBadge
+                      style={{
+                        backgroundColor: getRiskLevelColor(
+                          analysisResult.ml.ml_risk_level
+                        ),
+                      }}
+                    >
+                      {analysisResult.ml.ml_risk_level}
+                    </S.RiskBadge>
+                  </S.AnalysisRow>
+                )}
+              {/* 게이팅 발동 — 컴플라이언스 룰이 룰/ML 점수와 무관하게 최우선 처리를 요구함 */}
+              {analysisResult.gating?.triggered && (
+                <S.AnalysisRow>
+                  <S.AnalysisLabel>게이팅:</S.AnalysisLabel>
+                  <S.RiskBadge style={{ backgroundColor: "#dc2626" }}>
+                    {analysisResult.gating.rule_ids.join(", ")} 발동
+                  </S.RiskBadge>
+                </S.AnalysisRow>
+              )}
             </S.AnalysisResultCard>
           )}
 

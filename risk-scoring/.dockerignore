@@ -23,6 +23,7 @@
 !**/data/lists/*.json
 !**/demo/**/*.json
 !**/docs/examples/*.json
+!**/models/*.json
 
 # 결과 파일
 **/result

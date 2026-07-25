@@ -130,9 +130,11 @@ class WindowEvaluator:
             current_timestamp,
             duration_sec
         )
-        
-        # 현재 트랜잭션도 포함
-        window_txs.append(tx_data)
+
+        # 현재 트랜잭션도 포함 (add_transaction()이 평가 전에 이미 history에 넣어두므로
+        # 중복 추가하지 않도록 확인 — bucket.py의 evaluate_bucket_rule()과 동일한 가드)
+        if tx_data not in window_txs:
+            window_txs.append(tx_data)
         
         # 집계 조건 평가
         aggregations = rule.get("aggregations", [])
@@ -148,8 +150,10 @@ class WindowEvaluator:
     ) -> Optional[str]:
         """그룹 키 생성"""
         # group_by가 ["address"]인 경우 target_address 사용
+        # target_address를 우선한다 — evaluator.py의 히스토리 저장 키와 반드시 일치해야
+        # 하며, "to"를 우선하면 송신 거래가 상대방 주소로 잘못 그룹화된다.
         if "address" in group_by:
-            return tx_data.get("to") or tx_data.get("target_address")
+            return tx_data.get("target_address") or tx_data.get("to")
         # 다른 그룹 키는 추후 확장
         return None
     

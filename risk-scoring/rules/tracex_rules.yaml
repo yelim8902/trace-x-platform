@@ -12,7 +12,7 @@ meta:
     C-axis: 특금법/FATF 법적 임계값 직접 위반 여부 (금액·횟수·시간 기준)
     E-axis: 외부 블랙리스트(SDN·믹서·스캠) 노출 — 그래프 통계로 대체 불가
     B-axis: 시간대·금액 범위·토폴로지 등 그래프 집계 통계가 포착하지 못하는 패턴
-    (fan_in/fan_out 집계로 이미 커버되는 단순 10분 버킷 룰은 제외)
+    (fan_in/fan_out은 B-203/B-204 10분 버킷 룰로 구현됨)
   references:
     - "특금법: 특정금융거래정보의 보고 및 이용 등에 관한 법률 (최종 개정 2026. 2. 19.)"
     - "FATF (2020): Virtual Asset Red Flag Indicators of Money Laundering and Terrorist Financing, September 2020"
@@ -546,6 +546,85 @@ rules:
     cycle_total_usd_gte: 100
   score: 30
 
+- id: B-203
+  name: Fan-out (10m bucket)
+  axis: B
+  severity: MEDIUM
+  legal_basis: >
+    특금법 제4조(의심거래보고) 제1항 제2호 — 다수 상대방으로 자금 분산;
+    FATF (2020) Red Flag Indicators: Transaction Patterns —
+    "Structuring or funnelling funds through multiple accounts";
+    Samadi et al. (2025) MPOCryptoML — Fan-out pattern: 하나의 소스가
+    여러 목적지로 자금을 분산해 추적을 어렵게 하는 구조
+  bucket:
+    size_sec: 600
+    group:
+    - chain
+    - asset_contract
+    - from
+    - bucket_10m
+  aggregations:
+  - distinct_gte:
+      field: to
+      value: 3
+  - sum_gte:
+      field: usd_value
+      value: 1000
+  - every_gte:
+      field: usd_value
+      value: 100
+  exceptions:
+    any:
+    - tag:
+        field: from
+        key: CEX_INTERNAL
+        equals: true
+    - tag:
+        field: from
+        key: MM_BOT
+        equals: true
+  score: 20
+
+- id: B-204
+  name: Fan-in (10m bucket)
+  axis: B
+  severity: MEDIUM
+  legal_basis: >
+    특금법 제4조(의심거래보고) 제1항 제2호 — 다수 출처로부터 자금 집중;
+    FATF (2020) Red Flag Indicators: Transaction Patterns —
+    "Funds are received from multiple sources into a single account without
+    clear business rationale";
+    Samadi et al. (2025) MPOCryptoML — Fan-in pattern: 여러 소스에서 하나의
+    계정으로 자금이 집중되는 구조 (gather-scatter의 gather 단계)
+  bucket:
+    size_sec: 600
+    group:
+    - chain
+    - asset_contract
+    - to
+    - bucket_10m
+  aggregations:
+  - distinct_gte:
+      field: from
+      value: 3
+  - sum_gte:
+      field: usd_value
+      value: 1000
+  - every_gte:
+      field: usd_value
+      value: 100
+  exceptions:
+    any:
+    - tag:
+        field: to
+        key: CEX_INTERNAL
+        equals: true
+    - tag:
+        field: to
+        key: MM_BOT
+        equals: true
+  score: 20
+
 
 - id: B-401
   name: First 7 Days Burst
@@ -736,7 +815,7 @@ rules:
         field: address
         key: CEX_INTERNAL
         equals: true
-  score: 10
+  score: 20
 
 - id: B-505
   name: "CTR 임계값 직하 동일 금액 반복 (스머핑)"

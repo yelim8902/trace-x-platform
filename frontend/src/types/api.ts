@@ -19,6 +19,34 @@ export interface Transaction {
 export interface FiredRule {
   rule_id: string;
   score: number;
+  count?: number;
+  name?: string;
+  axis?: "C" | "E" | "B";
+  severity?: string;
+  description?: string;
+  legal_basis?: string;
+}
+
+// ML 트랙 (룰 트랙과 별도 병렬 표시 — 하나의 숫자로 블렌딩하지 않음, docs/GATING_INTEGRATION.md)
+export interface MLTopFeature {
+  feature: string;
+  value: number | null;
+  shap_value: number;
+  direction: "increases_risk" | "decreases_risk";
+  explanation: string;
+}
+
+export interface MLScoreResult {
+  ml_score: number | null;
+  ml_risk_level: "low" | "medium" | "high" | "critical" | null;
+  ml_top_features: MLTopFeature[];
+  error?: string;
+}
+
+// 컴플라이언스 룰(제재/믹서 직접 노출) 발동 시 룰/ML 점수와 무관하게 최우선 처리 신호
+export interface GatingResult {
+  triggered: boolean;
+  rule_ids: string[];
 }
 
 export interface AddressAnalysisRequest {
@@ -41,6 +69,10 @@ export interface AddressAnalysisResponse {
   fired_rules: FiredRule[];
   explanation: string;
   analysis_type?: "basic" | "advanced";
+  ml?: MLScoreResult;
+  gating?: GatingResult;
+  // 룰 판단 + ML 판단 + 종합 권장을 하나로 서술 (점수는 안 섞임, 텍스트만 병기)
+  combined_explanation?: string;
 }
 
 export interface TransactionScoringRequest {

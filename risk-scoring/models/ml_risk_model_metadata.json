@@ -1,0 +1,67 @@
+{
+  "model_type": "HistGradientBoostingClassifier",
+  "params": {
+    "max_iter": 100,
+    "max_depth": null,
+    "learning_rate": 0.05,
+    "l2_regularization": 1.0,
+    "random_state": 42
+  },
+  "feature_columns": [
+    "fan_in_count",
+    "fan_out_count",
+    "pattern_score",
+    "n_omega",
+    "n_theta",
+    "graph_nodes",
+    "graph_edges",
+    "avg_tx_usd",
+    "max_tx_usd",
+    "total_sent_usd",
+    "total_recv_usd",
+    "peel_chain_max_length",
+    "peel_chain_count",
+    "amount_deviation_score",
+    "frequency_deviation_score"
+  ],
+  "log1p_columns": [
+    "avg_tx_usd",
+    "graph_edges",
+    "graph_nodes",
+    "max_tx_usd",
+    "total_recv_usd",
+    "total_sent_usd"
+  ],
+  "trained_on": "xblock train+val+test combined (6,165 addresses)",
+  "risk_bands": [
+    {
+      "level": "low",
+      "min_score": 0,
+      "max_score": 20
+    },
+    {
+      "level": "medium",
+      "min_score": 20,
+      "max_score": 50
+    },
+    {
+      "level": "high",
+      "min_score": 50,
+      "max_score": 80
+    },
+    {
+      "level": "critical",
+      "min_score": 80,
+      "max_score": 100
+    }
+  ],
+  "reported_performance_source": "docs/TEST_EVALUATION.md - measured on a train+val-only model evaluated against the held-out test set, NOT on this artifact (which is refit on all data)",
+  "reported_test_metrics": {
+    "accuracy": 0.9698,
+    "precision": 0.9302,
+    "recall": 0.9091,
+    "f1": 0.9195,
+    "roc_auc": 0.9925,
+    "average_precision": 0.9729
+  }
+}
