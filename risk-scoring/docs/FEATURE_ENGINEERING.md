@@ -56,6 +56,14 @@ fan-in/fan-out(B-203/204) 튜닝 때와 같은 패턴 — 처음 정의(min_hops
 
 **부수 효과**: SDN_LIST 78→947 갱신은 이 피처와 무관하게 라이브 컴플라이언스 룰(C-001, E-102) 품질 자체를 개선한 실질적 성과.
 
+### ETH-Labels-2026 재검증 결과 (2024~2025년, 시기 정합 데이터)
+
+`scripts/validate_exposure_eth_labels.py`로 재검증. 단, 이 데이터셋은 XBlock의 `MulDiGraph.pkl` 같은 멀티홉 그래프가 없고 주소별 1-hop 거래 목록만 있어서 **hop=1(직접 접촉) 여부만 확인 가능** — hop=2 이상은 이 데이터로는 판단 불가(과소측정 가능성 있음, 추가 검증하려면 상대방 주소의 거래내역도 Etherscan에서 더 받아와야 함, 이번엔 범위 밖).
+
+**sanction_hop_distance (SDN_LIST 947개, 1-hop)**: fraud 0/249 (0.00%), normal 0/497 (0.00%) — **여전히 신호 없음**. 시기가 맞아도(중앙값 2025-02) 이 10개 사건의 관련 주소들이 SDN 리스트와 1-hop 이내로 직접 얽히지 않음. 시기 불일치만이 원인이 아니었고, "이 표본의 사건들이 OFAC 제재 대상과 직접 거래하지 않는다"는 것 자체가 실제 결과일 수 있음 — hop=2+ 데이터 없이는 완전히 결론 내릴 수 없어 **여전히 보류**.
+
+### privacy_protocol/mixer_hop_distance 재검증 결과 — 별도 섹션([3번](#3-privacy_protocol_involved-구현-완료-xblock으로는-0-예상된-결과) 참고, MIXER_LIST는 sanction과 같은 소스라 사실상 privacy_protocol_involved와 동일 계산)
+
 ## 3. `privacy_protocol_involved` (구현 완료, XBlock으로는 0% — 예상된 결과)
 
 ### 재정의
@@ -71,9 +79,16 @@ FATF의 "AEC/privacy coin 전환" 레드플래그는 이더리움에 그대로 �
 
 **fraud 0/815 (0.00%) / normal 0/3500 (0.00%)** — `sanction_hop_distance` 때와 똑같은 시기 불일치. Tornado Cash는 2019년 12월 출시라 XBlock 수집 기간(2016~2019)과 거의 안 겹침. 리스트를 67개로 늘려도 XBlock 자체의 시간대 문제라 해결 안 됨.
 
-### 다음 검증처
+### ETH-Labels-2026 재검증 결과 (2024~2025년, 시기 정합 데이터)
 
-`sanction_hop_distance`/`mixer_hop_distance`와 마찬가지로 **ETH-Labels-2026**(2024~2025년 데이터, `docs/DATA_ETH_LABELS_2026.md`)에서 재검증 예정 — Tornado Cash가 그 시기엔 실제로 활발히 쓰였으므로 신호가 나올 가능성 높음.
+`scripts/validate_exposure_eth_labels.py`로 재검증(1-hop 직접 접촉만 확인 가능, 근거는 위 sanction 섹션과 동일). MIXER_LIST(`bridge_contracts.json`의 `mixer_services`, 67개)는 `privacy_protocol_involved`가 쓰는 것과 완전히 같은 리스트라 이 데이터에서는 두 피처가 사실상 동일한 계산이 됨.
+
+- **fraud 4/249 (1.61%)** 직접 접촉 확인 (`truebit-exploit` 1건, `wazirx-exploit` 1건, `zkswap-exploit` 2건)
+- **normal 0/497 (0.00%)** — 접촉 없음
+
+XBlock의 완전한 0/0(시기가 안 맞아 아예 겹칠 수 없었던 경우)과 다르게, **여기서는 실제로 fraud에서만 걸리고 normal에서는 안 걸림** — 표본 수가 작아서(4건) 정밀한 lift 수치를 신뢰하긴 이르지만, "시기만 맞으면 이 피처가 실제로 반응한다"는 걸 처음으로 확인함. 6개 후보 중 유일하게 **XBlock에서는 0이었다가 ETH-Labels-2026에서 실제 신호가 나온 피처**.
+
+**결론**: 게이팅 룰(하드 오버라이드)로 유지하는 결정은 그대로 — ML 학습 피처로 쓰기엔 표본이 너무 적지만(4건), "믹서/프라이버시 프로토콜과 직접 접촉했다"는 사실 자체는 회색지대 랭킹이 아니라 즉시 고위험 처리해야 할 컴플라이언스 신호(FATF 레드플래그)라는 원래 설계 의도와도 맞음.
 
 ## 4. `amount_deviation_score` / `frequency_deviation_score` (구현·검증 완료)
 
@@ -131,18 +146,19 @@ FATF의 "AEC/privacy coin 전환" 레드플래그는 이더리움에 그대로 �
 
 | # | 피처 | 상태 |
 |---|---|---|
-| 1 | peel_chain_score | ✅ 구현·검증 완료 (lift 15.0) |
-| 2 | sanction_hop_distance | ✅ 구현 완료, XBlock 검증 보류 (시기 불일치) |
-| 3 | mixer_hop_distance | ✅ 구현 완료, XBlock 검증 보류 (시기 불일치) |
-| 4 | privacy_protocol_involved | ✅ 구현 완료, XBlock 검증 보류 (시기 불일치) |
-| 5 | amount_deviation_score | ✅ 구현·검증 완료 (lift 14.9) |
-| 6 | frequency_deviation_score | ✅ 구현·검증 완료 (lift 14.4) |
+| 1 | peel_chain_score | ✅ 구현·검증 완료 (XBlock lift 15.0) |
+| 2 | sanction_hop_distance | ✅ 구현 완료, XBlock·ETH-Labels-2026 둘 다 신호 없음 — 게이팅 룰로만 사용 |
+| 3 | mixer_hop_distance | ✅ 구현 완료, ETH-Labels-2026에서 fraud 4/249 실제 신호 확인(1-hop, 표본 작음) — 게이팅 룰로 사용 |
+| 4 | privacy_protocol_involved | ✅ 구현 완료, mixer_hop_distance와 동일 리스트/결과 — 게이팅 룰로 사용 |
+| 5 | amount_deviation_score | ✅ 구현·검증 완료 (XBlock lift 14.9, 단 커버리지 편향 있음) |
+| 6 | frequency_deviation_score | ✅ 구현·검증 완료 (XBlock lift 14.4, 단 커버리지 편향 있음) |
 
-**6개 전부 구현 완료.** 2,3,4번은 ETH-Labels-2026(2024~2025년) 데이터로 재검증 예정 — 시기가 맞아서 신호가 나올 가능성 높음.
+**6개 전부 구현·검증 완료.** ML 학습 피처는 1, 5, 6번(`build_feature_matrix.py`) — 2, 3, 4번은 표본이 너무 작거나(mixer 4건) 신호가 없어서(sanction) ML 피처가 아니라 **게이팅 룰(하드 오버라이드)**로 다루기로 확정. 상세 재검증 결과는 각 항목의 "ETH-Labels-2026 재검증 결과" 섹션 및 `EDA_ETH_LABELS_2026.md` 참고.
 
 ## 재현 명령어
 
 ```bash
 cd risk-scoring
 python3 scripts/extract_peel_chain_features.py --output data/dataset/peel_chain_train.json
+python3 scripts/validate_exposure_eth_labels.py
 ```
