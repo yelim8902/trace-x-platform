@@ -1076,9 +1076,23 @@ export default function AdhocPage() {
                     })()}
                   </S.DetailSection>
 
-                  {/* 리스크 점수 */}
+                  {/* 게이팅 경고 — 컴플라이언스 룰(제재/믹서 직접 노출) 발동 시
+                      아래 룰/ML 점수와 무관하게 최우선 처리가 필요함을 알림 */}
+                  {nodeDetails.gating?.triggered && (
+                    <S.GatingBanner>
+                      <S.GatingBannerTitle>
+                        ⚠ 컴플라이언스 게이팅 발동
+                      </S.GatingBannerTitle>
+                      <S.GatingBannerText>
+                        {nodeDetails.gating.rule_ids.join(", ")} 룰이 발동되어,
+                        아래 리스크 점수와 무관하게 최우선 검토가 필요합니다.
+                      </S.GatingBannerText>
+                    </S.GatingBanner>
+                  )}
+
+                  {/* 리스크 점수 (룰 트랙) */}
                   <S.DetailSection>
-                    <S.DetailLabel>리스크 점수</S.DetailLabel>
+                    <S.DetailLabel>리스크 점수 (룰 기반)</S.DetailLabel>
                     <S.RiskScore
                       style={{
                         color: getRiskColor(nodeDetails.risk_level),
@@ -1124,6 +1138,65 @@ export default function AdhocPage() {
                                 +{rule.score.toFixed(1)}점
                               </span>
                             </S.RuleItem>
+                          ))}
+                        </S.RuleList>
+                      </S.DetailSection>
+                    )}
+
+                  {/* ML 리스크 점수 (룰 트랙과 별도 병렬 표시 — 하나의 숫자로 블렌딩하지 않음) */}
+                  {nodeDetails.ml?.ml_score != null &&
+                    nodeDetails.ml.ml_risk_level && (
+                      <S.DetailSection>
+                        <S.DetailLabel>리스크 점수 (ML 기반)</S.DetailLabel>
+                        <S.RiskScore
+                          style={{
+                            color: getRiskColor(nodeDetails.ml.ml_risk_level),
+                            fontSize: "24px",
+                          }}
+                        >
+                          {nodeDetails.ml.ml_score.toFixed(1)} / 100
+                        </S.RiskScore>
+                        <S.RiskLevel
+                          style={{
+                            background: `${getRiskColor(
+                              nodeDetails.ml.ml_risk_level
+                            )}20`,
+                            color: getRiskColor(nodeDetails.ml.ml_risk_level),
+                          }}
+                        >
+                          {nodeDetails.ml.ml_risk_level.toUpperCase()}
+                        </S.RiskLevel>
+                      </S.DetailSection>
+                    )}
+
+                  {/* ML 판단 근거 (SHAP 기반 주요 피처 3개) */}
+                  {nodeDetails.ml?.ml_top_features &&
+                    nodeDetails.ml.ml_top_features.length > 0 && (
+                      <S.DetailSection>
+                        <S.DetailLabel>ML 판단 근거</S.DetailLabel>
+                        <S.RuleList>
+                          {nodeDetails.ml.ml_top_features.map((f, idx) => (
+                            <S.MLFeatureItem key={idx}>
+                              <S.MLFeatureHeader>
+                                <span>{f.feature}</span>
+                                <span
+                                  style={{
+                                    color:
+                                      f.direction === "increases_risk"
+                                        ? "#f87171"
+                                        : "#4ade80",
+                                  }}
+                                >
+                                  {f.direction === "increases_risk"
+                                    ? "▲"
+                                    : "▼"}{" "}
+                                  {f.shap_value.toFixed(2)}
+                                </span>
+                              </S.MLFeatureHeader>
+                              <S.MLFeatureExplanation>
+                                {f.explanation}
+                              </S.MLFeatureExplanation>
+                            </S.MLFeatureItem>
                           ))}
                         </S.RuleList>
                       </S.DetailSection>

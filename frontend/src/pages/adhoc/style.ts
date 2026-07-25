@@ -378,6 +378,64 @@ export const RuleItem = styled.div`
   }
 `;
 
+// ML 트랙 (룰 트랙과 별도 병렬 표시 — docs/GATING_INTEGRATION.md)
+export const MLFeatureItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--secondary200, #343b4f);
+  border-radius: 8px;
+  font-family: "Mona Sans";
+`;
+
+export const MLFeatureHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--white, #fff);
+`;
+
+export const MLFeatureExplanation = styled.div`
+  font-size: 12px;
+  color: var(--primary400, #aeb9e1);
+  line-height: 1.5;
+`;
+
+// 게이팅 배너 (컴플라이언스 룰 발동 시 룰/ML 점수와 무관하게 최우선 처리 신호)
+export const GatingBanner = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.5);
+  border-radius: 8px;
+  margin-bottom: 24px;
+`;
+
+export const GatingBannerTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fca5a5;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: "Mona Sans";
+`;
+
+export const GatingBannerText = styled.div`
+  font-size: 12px;
+  color: #fecaca;
+  line-height: 1.5;
+  font-family: "Mona Sans";
+`;
+
 // 기존 컴포넌트 (호환성 유지)
 export const CenterBox = styled.div`
   position: absolute;
