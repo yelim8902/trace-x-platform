@@ -83,6 +83,14 @@ class Analyzer:
 
                 next_hop_addresses.update(connected_addresses)
 
+            # max_addresses_per_direction을 실제로 적용 — 안 그러면 활동 많은
+            # 주소(거래소 핫월렛 등)에서 홉마다 연결 주소 수가 기하급수적으로
+            # 불어나 Etherscan 호출이 수백~수천 건으로 폭주함
+            if len(next_hop_addresses) > max_addresses_per_direction:
+                next_hop_addresses = set(
+                    sorted(next_hop_addresses)[:max_addresses_per_direction]
+                )
+
             current_hop_addresses = next_hop_addresses
 
             if not current_hop_addresses:
