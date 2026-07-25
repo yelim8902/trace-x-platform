@@ -15,6 +15,59 @@ address_analysis_bp = Blueprint("address_analysis", __name__)
 # 피처가 아니라 게이팅 룰로 다루기로 확정한 것과 같은 결정.
 GATING_RULE_IDS = {"C-001", "E-101", "E-102"}
 
+_SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+
+
+def _recommend_action(rule_level: str, ml_result: dict, gating: dict) -> str:
+    """룰/ML 등급 조합에 따른 결정론적 권장 조치 — LLM 미사용, 고정 규칙표.
+    이 프로젝트 전체가 '설명 가능한 결정론적 시스템'이라는 게 핵심이라,
+    여기서 LLM으로 문장을 생성하면 그 자체로 다시 설명이 필요해지는 모순이 생김."""
+    if gating.get("triggered"):
+        rule_ids = ", ".join(gating["rule_ids"])
+        return f"컴플라이언스 룰({rule_ids})이 발동되어 두 점수와 무관하게 즉시 최우선 검토가 필요합니다."
+
+    ml_level = ml_result.get("ml_risk_level")
+    if ml_level is None:
+        return "ML 판단이 계산되지 않아 룰 판단만으로 검토가 필요합니다."
+
+    r = _SEVERITY_RANK.get(rule_level, 0)
+    m = _SEVERITY_RANK.get(ml_level, 0)
+
+    if r <= 1 and m >= 2:
+        return "룰 기준으로는 두드러지지 않지만 ML이 이례적 행동 패턴을 감지했으므로 추가 검토를 권장합니다."
+    if r >= 2 and m <= 1:
+        return "행동 패턴상 특이사항은 적으나 규정 위반 소지가 있어 컴플라이언스 관점에서 검토를 권장합니다."
+    if r >= 2 and m >= 2:
+        return "룰과 ML 모두 높은 위험을 시사하므로 우선 검토를 권장합니다."
+    return "룰/ML 모두 낮은 위험으로 판단되어 특별한 조치가 필요하지 않습니다."
+
+
+def _build_combined_explanation(result, ml_result: dict, gating: dict) -> str:
+    """룰 판단 + ML 판단 + 종합 권장을 하나의 서술로 합침.
+    룰 트랙과 ML 트랙의 결과를 각각 그대로 보여주고 마지막에만 합치는 것으로,
+    두 점수 자체를 섞는(blending) 게 아님 — 게이팅+병렬 표시 아키텍처의 연장."""
+    parts = []
+
+    if result.fired_rules:
+        top_rules = sorted(result.fired_rules, key=lambda r: r.get("score", 0), reverse=True)[:3]
+        rule_desc = ", ".join(f"{r.get('name', r['rule_id'])}({r['rule_id']})" for r in top_rules)
+        parts.append(f"[룰 판단] {rule_desc} 발동 — {result.risk_level} 등급({int(result.risk_score)}점).")
+    else:
+        parts.append(f"[룰 판단] 발동된 룰 없음 — {result.risk_level} 등급.")
+
+    if ml_result.get("ml_score") is not None:
+        top_features = ml_result.get("ml_top_features", [])
+        if top_features:
+            reasons = ", ".join(f.get("explanation", f["feature"]) for f in top_features[:2])
+            parts.append(f"[ML 판단] {reasons} — {ml_result['ml_risk_level']} 등급({ml_result['ml_score']}점).")
+        else:
+            parts.append(f"[ML 판단] {ml_result['ml_risk_level']} 등급({ml_result['ml_score']}점), 거래 데이터 부족으로 세부 근거 없음.")
+    else:
+        parts.append("[ML 판단] 계산 실패 (룰 판단은 ML과 무관하게 유효함).")
+
+    parts.append(f"[종합] {_recommend_action(result.risk_level, ml_result, gating)}")
+    return " ".join(parts)
+
 
 def _convert_chain_id_to_chain(chain_id: int) -> str:
     """체인 ID(숫자)를 체인 이름으로 변환"""
@@ -382,8 +435,8 @@ def analyze_address():
             "risk_score": int(result.risk_score),  # 정수로 변환
             "risk_level": result.risk_level,
             "risk_tags": result.risk_tags,
-            "fired_rules": result.fired_rules,  # {rule_id, score} 형태
-            "explanation": result.explanation,
+            "fired_rules": result.fired_rules,  # {rule_id, score, name, axis, severity, description, legal_basis, count}
+            "explanation": result.explanation,  # 룰 단독 설명 (하위 호환용, 그대로 유지)
             "completed_at": result.completed_at,
             # 백엔드 요구 필드
             "timestamp": latest_timestamp,
@@ -393,6 +446,8 @@ def analyze_address():
             "ml": ml_result,
             # 10단계 신규 필드 — 게이팅 (컴플라이언스 룰 발동 시 ML과 무관하게 강제 override 신호)
             "gating": gating,
+            # 룰 판단 + ML 판단 + 종합 권장을 하나로 서술 (점수 자체는 안 섞음, 텍스트만 병기)
+            "combined_explanation": _build_combined_explanation(result, ml_result, gating),
         }
         if ml_error:
             response["ml"]["error"] = ml_error
