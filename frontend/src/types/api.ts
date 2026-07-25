@@ -19,6 +19,12 @@ export interface Transaction {
 export interface FiredRule {
   rule_id: string;
   score: number;
+  count?: number;
+  name?: string;
+  axis?: "C" | "E" | "B";
+  severity?: string;
+  description?: string;
+  legal_basis?: string;
 }
 
 // ML 트랙 (룰 트랙과 별도 병렬 표시 — 하나의 숫자로 블렌딩하지 않음, docs/GATING_INTEGRATION.md)
@@ -65,6 +71,8 @@ export interface AddressAnalysisResponse {
   analysis_type?: "basic" | "advanced";
   ml?: MLScoreResult;
   gating?: GatingResult;
+  // 룰 판단 + ML 판단 + 종합 권장을 하나로 서술 (점수는 안 섞임, 텍스트만 병기)
+  combined_explanation?: string;
 }
 
 export interface TransactionScoringRequest {

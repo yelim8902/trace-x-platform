@@ -190,6 +190,7 @@ export default function AdhocPage() {
   const [nodeDetails, setNodeDetails] =
     useState<AddressAnalysisResponse | null>(null);
   const [isDeepAnalysis, setIsDeepAnalysis] = useState(false); // 심층분석 여부
+  const [expandedRules, setExpandedRules] = useState<Set<number>>(new Set()); // 발동된 룰 중 펼쳐진 것
   const [showTestAddresses, setShowTestAddresses] = useState(false); // 테스트 주소 드롭다운 표시 여부
   const testAddressesRef = useRef<HTMLDivElement>(null); // 테스트 주소 드롭다운 ref
 
@@ -568,6 +569,47 @@ export default function AdhocPage() {
       default:
         return "#6b7280";
     }
+  };
+
+  // 룰북 축(C/E/B) 라벨 — tracex_rules.yaml meta.description 참고
+  const getAxisLabel = (axis?: string) => {
+    switch (axis) {
+      case "C":
+        return "Compliance · 법령 임계값";
+      case "E":
+        return "Exposure · 외부 리스트 노출";
+      case "B":
+        return "Behavior · 행동/토폴로지 패턴";
+      default:
+        return axis || "";
+    }
+  };
+
+  const toggleRuleExpanded = (idx: number) => {
+    setExpandedRules((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      return next;
+    });
+  };
+
+  // "[룰 판단] ... [ML 판단] ... [종합] ..." 형태의 combined_explanation을 3부분으로 분해
+  const parseCombinedExplanation = (text?: string) => {
+    if (!text) return null;
+    const match = {
+      rule: text.match(/\[룰 판단\]\s*([\s\S]*?)(?=\[ML 판단\]|\[종합\]|$)/),
+      ml: text.match(/\[ML 판단\]\s*([\s\S]*?)(?=\[종합\]|$)/),
+      summary: text.match(/\[종합\]\s*([\s\S]*)$/),
+    };
+    return {
+      rule: match.rule?.[1]?.trim() ?? "",
+      ml: match.ml?.[1]?.trim() ?? "",
+      summary: match.summary?.[1]?.trim() ?? "",
+    };
   };
 
   return (
@@ -995,22 +1037,90 @@ export default function AdhocPage() {
                       </S.DetailSection>
                     )}
 
-                  {/* 발동된 룰 */}
+                  {/* 발동된 룰 — 클릭하면 룰 설명/법적 근거 펼쳐짐 */}
                   {nodeDetails.fired_rules &&
                     nodeDetails.fired_rules.length > 0 && (
                       <S.DetailSection>
-                        <S.DetailLabel>발동된 룰</S.DetailLabel>
+                        <S.DetailLabel>발동된 룰 (클릭하면 근거 확인)</S.DetailLabel>
                         <S.RuleList>
-                          {nodeDetails.fired_rules.map((rule, idx) => (
-                            <S.RuleItem key={idx}>
-                              <span style={{ fontWeight: 600 }}>
-                                {rule.rule_id}
-                              </span>
-                              <span style={{ color: "#9ca3af" }}>
-                                +{rule.score.toFixed(1)}점
-                              </span>
-                            </S.RuleItem>
-                          ))}
+                          {nodeDetails.fired_rules.map((rule, idx) => {
+                            const isOpen = expandedRules.has(idx);
+                            return (
+                              <S.RuleItem
+                                key={idx}
+                                onClick={() => toggleRuleExpanded(idx)}
+                                style={{
+                                  cursor: "pointer",
+                                  flexDirection: "column",
+                                  alignItems: "stretch",
+                                  gap: isOpen ? "6px" : "0",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    width: "100%",
+                                  }}
+                                >
+                                  <span>
+                                    <span style={{ fontWeight: 600 }}>
+                                      {rule.rule_id}
+                                    </span>
+                                    {rule.name && (
+                                      <span
+                                        style={{
+                                          color: "#9ca3af",
+                                          marginLeft: "6px",
+                                        }}
+                                      >
+                                        {rule.name}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "6px",
+                                    }}
+                                  >
+                                    <span style={{ color: "#9ca3af" }}>
+                                      +{rule.score.toFixed(1)}점
+                                    </span>
+                                    <span style={{ color: "#6b7280", fontSize: "10px" }}>
+                                      {isOpen ? "▲" : "▼"}
+                                    </span>
+                                  </span>
+                                </div>
+                                {isOpen && (
+                                  <S.RuleDetailBox>
+                                    <div style={{ display: "flex", gap: "6px", marginBottom: "4px" }}>
+                                      {rule.axis && (
+                                        <S.RuleAxisBadge>
+                                          {getAxisLabel(rule.axis)}
+                                        </S.RuleAxisBadge>
+                                      )}
+                                      {rule.severity && (
+                                        <S.RuleAxisBadge style={{ opacity: 0.8 }}>
+                                          {rule.severity}
+                                        </S.RuleAxisBadge>
+                                      )}
+                                    </div>
+                                    {rule.description && (
+                                      <div style={{ marginBottom: "4px" }}>{rule.description}</div>
+                                    )}
+                                    {rule.legal_basis && (
+                                      <div style={{ color: "#9ca3af", fontSize: "11px" }}>
+                                        {rule.legal_basis}
+                                      </div>
+                                    )}
+                                  </S.RuleDetailBox>
+                                )}
+                              </S.RuleItem>
+                            );
+                          })}
                         </S.RuleList>
                       </S.DetailSection>
                     )}
@@ -1135,13 +1245,54 @@ export default function AdhocPage() {
                     return null;
                   })()}
 
-                  {/* 설명 */}
-                  {nodeDetails.explanation && (
-                    <S.DetailSection>
-                      <S.DetailLabel>상세 설명</S.DetailLabel>
-                      <S.DetailValue>{nodeDetails.explanation}</S.DetailValue>
-                    </S.DetailSection>
-                  )}
+                  {/* 종합 판단 — 룰 판단 + ML 판단 + 권장 조치 (점수는 안 섞고 텍스트만 병기) */}
+                  {(() => {
+                    const parsed = parseCombinedExplanation(
+                      nodeDetails.combined_explanation
+                    );
+                    if (!parsed) {
+                      // 구버전 응답 호환 — combined_explanation이 없으면 기존 룰 설명만 표시
+                      return (
+                        nodeDetails.explanation && (
+                          <S.DetailSection>
+                            <S.DetailLabel>상세 설명</S.DetailLabel>
+                            <S.DetailValue>
+                              {nodeDetails.explanation}
+                            </S.DetailValue>
+                          </S.DetailSection>
+                        )
+                      );
+                    }
+                    return (
+                      <S.DetailSection>
+                        <S.DetailLabel>종합 판단</S.DetailLabel>
+                        <S.JudgmentBox>
+                          {parsed.rule && (
+                            <S.JudgmentRow>
+                              <S.JudgmentTag $tone="rule">룰</S.JudgmentTag>
+                              <span>{parsed.rule}</span>
+                            </S.JudgmentRow>
+                          )}
+                          {parsed.ml && (
+                            <S.JudgmentRow>
+                              <S.JudgmentTag $tone="ml">ML</S.JudgmentTag>
+                              <span>{parsed.ml}</span>
+                            </S.JudgmentRow>
+                          )}
+                          {parsed.summary && (
+                            <S.JudgmentRow style={{ marginTop: "2px" }}>
+                              <S.JudgmentTag $tone="summary">
+                                종합
+                              </S.JudgmentTag>
+                              <span style={{ fontWeight: 600 }}>
+                                {parsed.summary}
+                              </span>
+                            </S.JudgmentRow>
+                          )}
+                        </S.JudgmentBox>
+                      </S.DetailSection>
+                    );
+                  })()}
 
                   {/* 버튼 영역 (맨 아래) */}
                   <div
