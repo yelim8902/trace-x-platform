@@ -684,13 +684,14 @@ export default function AdhocPage() {
                 border: "1px solid rgba(59, 130, 246, 0.3)",
                 borderRadius: "8px",
                 padding: "12px",
-                minWidth: "300px",
+                minWidth: "340px",
+                maxWidth: "380px",
                 zIndex: 1000,
                 boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
               }}
             >
-              {/* 기본 테스트 주소 */}
-              <div style={{ marginBottom: "12px" }}>
+              {/* 탐지 시나리오 — 실제 검증된 주소로 우리 시스템이 뭘 잡아내는지 보여줌 */}
+              <div>
                 <div
                   style={{
                     fontSize: "11px",
@@ -701,228 +702,99 @@ export default function AdhocPage() {
                     letterSpacing: "0.5px",
                   }}
                 >
-                  기본 테스트 주소
+                  탐지 시나리오
                 </div>
                 <div
                   style={{
                     display: "flex",
                     flexDirection: "column",
-                    gap: "6px",
+                    gap: "10px",
                   }}
                 >
-                  <button
-                    onClick={() => {
-                      setAddress("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
-                      setAnalysisMode("address");
-                      setShowTestAddresses(false);
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#60a5fa",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "12px",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background =
-                        "rgba(59, 130, 246, 0.1)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "none";
-                    }}
-                  >
-                    Vitalik Buterin
-                  </button>
-                  <button
-                    onClick={() => {
-                      setAddress("0x28C6c06298d514Db089934071355E5743bf21d60");
-                      setAnalysisMode("address");
-                      setShowTestAddresses(false);
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#60a5fa",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "12px",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background =
-                        "rgba(59, 130, 246, 0.1)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "none";
-                    }}
-                  >
-                    Binance Hot Wallet
-                  </button>
-                </div>
-              </div>
-
-              {/* 룰 테스트용 주소 */}
-              <div
-                style={{
-                  borderTop: "1px solid rgba(59, 130, 246, 0.2)",
-                  paddingTop: "12px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    color: "#94a3b8",
-                    marginBottom: "8px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                  }}
-                >
-                  룰 테스트용 주소
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "8px",
-                  }}
-                >
-                  <div>
-                    <span style={{ color: "#9ca3af", fontSize: "11px" }}>
-                      믹서:
-                    </span>
+                  {[
+                    {
+                      address: "0x09278b36863be4ccd3d0c22d643e8062d7a11377",
+                      name: "Bybit 해킹 (2025)",
+                      badge: "ML 탐지",
+                      badgeColor: "#f87171",
+                      desc: "실제 역대 최대 규모 해킹 관련 주소 — 룰은 medium인데 ML이 fan-in/이상행동 패턴으로 critical 판단",
+                    },
+                    {
+                      address: "0x8589427373D6D84E98730D7795D8f6f8731FDA16",
+                      name: "Tornado Cash",
+                      badge: "게이팅 발동",
+                      badgeColor: "#facc15",
+                      desc: "OFAC 제재 대상 믹서 — C-001/E-101 룰과 ML 전부 critical로 일치, 게이팅이 최우선 처리 신호를 보냄",
+                    },
+                    {
+                      address: "0x3f5CE5FBFe3E9af3971dD833D26bA9b5C936f0bE",
+                      name: "Binance 핫월렛",
+                      badge: "오탐 사례",
+                      badgeColor: "#94a3b8",
+                      desc: "정상 거래소 지갑인데 fan-in이 원래 많아서 ML이 critical로 오판 — 모델의 알려진 한계",
+                    },
+                  ].map((item) => (
                     <button
+                      key={item.address}
                       onClick={() => {
-                        setAddress(
-                          "0x8589427373D6D84E98730D7795D8f6f8731FDA16"
-                        );
+                        setAddress(item.address);
                         setAnalysisMode("address");
                         setShowTestAddresses(false);
                       }}
                       style={{
-                        background: "none",
-                        border: "none",
-                        color: "#60a5fa",
+                        background: "rgba(255, 255, 255, 0.02)",
+                        border: "1px solid rgba(255, 255, 255, 0.06)",
                         cursor: "pointer",
-                        marginLeft: "8px",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
+                        textAlign: "left",
+                        padding: "8px 10px",
+                        borderRadius: "6px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "4px",
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background =
                           "rgba(59, 130, 246, 0.1)";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "none";
-                      }}
-                    >
-                      Tornado Cash
-                    </button>
-                  </div>
-                  <div>
-                    <span style={{ color: "#9ca3af", fontSize: "11px" }}>
-                      브릿지:
-                    </span>
-                    <button
-                      onClick={() => {
-                        setAddress(
-                          "0x3666f603Cc164936C1b87e207F36BEBa4AC5f18a"
-                        );
-                        setAnalysisMode("address");
-                        setShowTestAddresses(false);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#60a5fa",
-                        cursor: "pointer",
-                        marginLeft: "8px",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                      }}
-                      onMouseEnter={(e) => {
                         e.currentTarget.style.background =
-                          "rgba(59, 130, 246, 0.1)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "none";
+                          "rgba(255, 255, 255, 0.02)";
                       }}
                     >
-                      Hop Protocol
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: "#60a5fa",
+                            fontSize: "12px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {item.name}
+                        </span>
+                        <span
+                          style={{
+                            color: item.badgeColor,
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            border: `1px solid ${item.badgeColor}55`,
+                            borderRadius: "4px",
+                            padding: "1px 6px",
+                          }}
+                        >
+                          {item.badge}
+                        </span>
+                      </div>
+                      <div style={{ color: "#9ca3af", fontSize: "11px", lineHeight: 1.4 }}>
+                        {item.desc}
+                      </div>
                     </button>
-                  </div>
-                  <div>
-                    <span style={{ color: "#9ca3af", fontSize: "11px" }}>
-                      CEX:
-                    </span>
-                    <button
-                      onClick={() => {
-                        setAddress(
-                          "0x3f5CE5FBFe3E9af3971dD833D26bA9b5C936f0bE"
-                        );
-                        setAnalysisMode("address");
-                        setShowTestAddresses(false);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#60a5fa",
-                        cursor: "pointer",
-                        marginLeft: "8px",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background =
-                          "rgba(59, 130, 246, 0.1)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "none";
-                      }}
-                    >
-                      Binance
-                    </button>
-                  </div>
-                  <div>
-                    <span style={{ color: "#9ca3af", fontSize: "11px" }}>
-                      DEX:
-                    </span>
-                    <button
-                      onClick={() => {
-                        setAddress(
-                          "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
-                        );
-                        setAnalysisMode("address");
-                        setShowTestAddresses(false);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#60a5fa",
-                        cursor: "pointer",
-                        marginLeft: "8px",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background =
-                          "rgba(59, 130, 246, 0.1)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "none";
-                      }}
-                    >
-                      Uniswap V2
-                    </button>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
