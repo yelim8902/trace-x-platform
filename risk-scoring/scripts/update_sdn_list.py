@@ -20,6 +20,7 @@ from datetime import datetime
 
 OFAC_XML_URL = "https://www.treasury.gov/ofac/downloads/sdn.xml"
 SDN_OUTPUT_FILE = Path("data/lists/sdn_addresses.json")
+SDN_METADATA_FILE = Path("data/lists/sdn_addresses_metadata.json")
 
 
 def download_sdn_xml(url: str = OFAC_XML_URL) -> bytes:
@@ -179,18 +180,27 @@ def parse_sdn_xml(xml_content: bytes) -> Dict[str, List[str]]:
     }
 
 
-def save_sdn_list(data: Dict, output_file: Path) -> None:
-    """SDN 리스트를 JSON 파일로 저장"""
+def save_sdn_list(data: Dict, output_file: Path, metadata_file: Path) -> None:
+    """
+    SDN 리스트를 JSON 파일로 저장.
+
+    ListLoader._load_json_list()가 파싱 가능한 "평면 리스트" 포맷으로 저장해야 함
+    (기존 sdn_addresses.json이 이 포맷이었고, 여기에 dict를 그대로 저장하면
+    ListLoader가 못 읽어서 SDN_LIST가 조용히 비어버림 — 실제 라이브 컴플라이언스
+    룰 C-001/E-102가 이 파일을 읽으므로 포맷을 반드시 지켜야 함).
+    전체 통화별 분류 + 메타데이터는 별도 파일에 참고용으로 저장.
+    """
     print(f"💾 SDN 리스트 저장 중...")
     print(f"   파일: {output_file}")
-    
-    # 디렉토리 생성
+
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    
-    # JSON 저장
+
     with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(data["all"], f, indent=2, ensure_ascii=False)
+
+    with open(metadata_file, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    
+
     print(f"✅ 저장 완료!")
     print(f"   - BTC: {len(data['btc'])}개")
     print(f"   - ETH: {len(data['eth'])}개")
@@ -250,7 +260,7 @@ def main():
         print()
         
         # 4. 저장
-        save_sdn_list(sdn_data, SDN_OUTPUT_FILE)
+        save_sdn_list(sdn_data, SDN_OUTPUT_FILE, SDN_METADATA_FILE)
         print()
         
         print("=" * 70)
