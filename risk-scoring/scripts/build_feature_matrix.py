@@ -41,8 +41,7 @@ def main():
     args = parser.parse_args()
 
     if args.split == "test":
-        print("⚠️  test set은 8~9단계 전까지 손대지 않기로 했음 — 이 스크립트로 만들지 않음.")
-        return
+        print("⚠️  7단계(최종 평가) 진입 — test set feature matrix를 최초로 생성함. 이후 평가는 딱 한 번만 수행할 것.")
 
     extracted_path = project_root / f"data/dataset/xblock_split_{args.split}_extracted.json"
     tx_path = project_root / f"data/dataset/xblock_split_{args.split}_transactions.json"
