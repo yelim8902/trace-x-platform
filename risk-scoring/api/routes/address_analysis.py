@@ -5,8 +5,15 @@
 """
 from flask import Blueprint, request, jsonify
 from core.scoring.address_analyzer import AddressAnalyzer, AddressAnalysisResult
+from core.scoring.ml_scorer import MLScorer
 
 address_analysis_bp = Blueprint("address_analysis", __name__)
+
+# 이 룰이 발동하면 ML 점수와 무관하게 강제로 critical 처리(게이팅) —
+# 전부 "직접 제재/믹서 노출"류 컴플라이언스 룰(axis C/E, severity HIGH).
+# docs/FEATURE_ENGINEERING.md에서 sanction/mixer 노출 피처를 ML 학습
+# 피처가 아니라 게이팅 룰로 다루기로 확정한 것과 같은 결정.
+GATING_RULE_IDS = {"C-001", "E-101", "E-102"}
 
 
 def _convert_chain_id_to_chain(chain_id: int) -> str:
@@ -352,8 +359,25 @@ def analyze_address():
                 # 모든 트랜잭션의 총 value 계산
                 total_value = sum(float(tx.get("amount_usd", 0)) for tx in transactions)
         
-        # 기존 JSON 포맷에 맞춰 응답 생성
-        return jsonify({
+        # ML 트랙 (룰 트랙과 완전히 독립 — 10단계, 게이팅+병렬 표시 아키텍처)
+        try:
+            ml_result = MLScorer.get_instance().score(address, processed_transactions)
+            ml_error = None
+        except Exception as e:
+            # ML 실패는 룰 기반 결과 반환을 막지 않음 — 컴플라이언스 룰은 ML 없이도 항상 동작해야 함
+            ml_result = {"ml_score": None, "ml_risk_level": None, "ml_top_features": []}
+            ml_error = str(e)
+
+        # 게이팅: 컴플라이언스 룰이 발동하면 ML 점수와 무관하게 critical 강제
+        fired_rule_ids = {r["rule_id"] for r in result.fired_rules}
+        gating_hit = fired_rule_ids & GATING_RULE_IDS
+        gating = {
+            "triggered": bool(gating_hit),
+            "rule_ids": sorted(gating_hit),
+        }
+
+        # 기존 JSON 포맷에 맞춰 응답 생성 (룰 필드는 그대로, ML/게이팅은 신규 추가 필드)
+        response = {
             "target_address": result.address,  # 기존 포맷에 맞춤
             "risk_score": int(result.risk_score),  # 정수로 변환
             "risk_level": result.risk_level,
@@ -364,8 +388,15 @@ def analyze_address():
             # 백엔드 요구 필드
             "timestamp": latest_timestamp,
             "chain_id": chain_id,
-            "value": float(total_value)
-        }), 200
+            "value": float(total_value),
+            # 10단계 신규 필드 — ML 트랙 (룰과 별도 병렬 표시, 하나의 숫자로 블렌딩하지 않음)
+            "ml": ml_result,
+            # 10단계 신규 필드 — 게이팅 (컴플라이언스 룰 발동 시 ML과 무관하게 강제 override 신호)
+            "gating": gating,
+        }
+        if ml_error:
+            response["ml"]["error"] = ml_error
+        return jsonify(response), 200
     
     except Exception as e:
         return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
