@@ -21,7 +21,7 @@ from sklearn.pipeline import Pipeline
 
 from train_model import FEATURE_COLUMNS, load_split, to_xy
 
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 
 BEST_PARAMS = dict(max_iter=100, max_depth=None, learning_rate=0.05, l2_regularization=1.0, random_state=42)
 

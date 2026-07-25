@@ -78,7 +78,7 @@ XBlock(정상의 43.7%가 활동 0건)보다 훨씬 낮음 — 이 데이터셋�
 
 ```bash
 cd risk-scoring
-python3 scripts/eda_eth_labels_2026.py
+python3 scripts/eda/eda_eth_labels_2026.py
 ```
 
 (`data/dataset/eth_labels_2026_transactions.json`이 먼저 있어야 함 — `DATA_ETH_LABELS_2026.md`의 재현 명령어로 생성)

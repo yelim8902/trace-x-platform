@@ -64,7 +64,7 @@
 
 ```bash
 cd risk-scoring
-python3 scripts/eda_xblock.py
+python3 scripts/eda/eda_xblock.py
 ```
 
 (`data/dataset/xblock_extracted.json`, `xblock_transactions.json`이 먼저 있어야 함 — `DATA_XBLOCK.md`의 재현 명령어로 생성)

@@ -76,5 +76,5 @@ fold별 분산이 크지 않음(std 0.6~2% 수준) — GOG 때처럼 "한 번 �
 
 ```bash
 cd risk-scoring
-python3 scripts/train_model.py
+python3 scripts/model/train_model.py
 ```

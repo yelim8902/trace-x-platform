@@ -20,7 +20,7 @@ import argparse
 import random
 from pathlib import Path
 
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 ETH_TO_USD = 1500.0  # 데이터 수집 시점(2017~2019) 근사 환율

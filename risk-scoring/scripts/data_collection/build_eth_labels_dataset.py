@@ -16,7 +16,7 @@ import random
 import urllib.request
 from pathlib import Path
 
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 SEED = 42
 
 ETH_LABELS_SOURCE_URL = "https://raw.githubusercontent.com/dawsbot/eth-labels/v1/data/json/accounts.json"

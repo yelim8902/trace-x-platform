@@ -47,8 +47,8 @@ Score 분포가 클래스 간에 거의 안 겹침 — normal은 median 0.2 / p9
 
 ```bash
 cd risk-scoring
-python3 scripts/build_feature_matrix.py --split test   # 최초 1회만 실행됨 (이미 실행됨)
-python3 scripts/evaluate_test_set.py
+python3 scripts/features/build_feature_matrix.py --split test   # 최초 1회만 실행됨 (이미 실행됨)
+python3 scripts/model/evaluate_test_set.py
 ```
 
 **주의**: 이 스크립트를 다시 실행하는 건 재현성 확인 목적일 때만 — 결과를 보고 6단계로 돌아가 모델을 다시 튜닝하면 test set의 의미가 사라짐.

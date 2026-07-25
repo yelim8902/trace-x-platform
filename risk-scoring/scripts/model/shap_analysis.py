@@ -17,7 +17,7 @@ import shap
 
 from train_model import FEATURE_COLUMNS, load_split, to_xy
 
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 
 # SHAP 피처 -> 사람이 읽는 설명 문구 매핑 (룰북 설명과 나란히 표시할 ML 근거)
 FEATURE_EXPLANATIONS = {

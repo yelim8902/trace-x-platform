@@ -17,7 +17,7 @@ from pathlib import Path
 
 import requests
 
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 BASE_URL = "https://api.etherscan.io/v2/api"
 CHAIN_ID = 1
 MAX_TXS_PER_ADDRESS = 500

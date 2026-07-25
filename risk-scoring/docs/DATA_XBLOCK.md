@@ -33,7 +33,7 @@
 
 ## 우리가 추출한 서브셋 (이번 세션에서 실행, `data/dataset/` 산출물)
 
-`scripts/extract_features_from_pkl.py` + `scripts/extract_txs_for_rules.py`로 생성:
+`scripts/data_collection/extract_features_from_pkl.py` + `scripts/data_collection/extract_txs_for_rules.py`로 생성:
 
 | 파일                       | 내용                                                                           | 실측 규모                                                            |
 | -------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
@@ -52,8 +52,8 @@
 
 1. `kaggle datasets download -d xblock/ethereum-phishing-transaction-network` → `data/xblock/`에 압축 해제
 2. `python3 -c "import pickle; G = pickle.load(...)"` 로 그래프 로드 성공 확인 (노드/엣지 수 일치 확인)
-3. `scripts/extract_features_from_pkl.py` 실행 → `xblock_extracted.json` 생성, fraud/normal 개수 로그로 확인
-4. `scripts/extract_txs_for_rules.py` 실행 → `xblock_transactions.json` 생성
+3. `scripts/data_collection/extract_features_from_pkl.py` 실행 → `xblock_extracted.json` 생성, fraud/normal 개수 로그로 확인
+4. `scripts/data_collection/extract_txs_for_rules.py` 실행 → `xblock_transactions.json` 생성
 5. 실제 프로덕션 룰 엔진(`AddressAnalyzer`/`RuleEvaluator`)에 이 데이터를 통과시켜 룰 발동 여부·최종 risk_score 확인 — 이 과정에서 이중카운팅 버그(`window.py`)와 주소 오귀속 버그(`evaluator.py`)를 발견/수정함 (자세한 내용은 git log 커밋 `b6c4fc7` 참고)
 
 ## 재현 명령어
@@ -62,8 +62,8 @@
 cd risk-scoring
 kaggle datasets download -d xblock/ethereum-phishing-transaction-network -p data/xblock/
 unzip data/xblock/ethereum-phishing-transaction-network.zip -d data/xblock/
-python3 scripts/extract_features_from_pkl.py
-python3 scripts/extract_txs_for_rules.py \
+python3 scripts/data_collection/extract_features_from_pkl.py
+python3 scripts/data_collection/extract_txs_for_rules.py \
   --input "data/xblock/Ethereum Phishing Transaction Network/MulDiGraph.pkl" \
   --addresses data/dataset/xblock_extracted.json \
   --output data/dataset/xblock_transactions.json

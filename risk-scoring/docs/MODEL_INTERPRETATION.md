@@ -22,7 +22,7 @@
 
 ## 2. SHAP 피처 → 사람이 읽는 설명 문구 매핑
 
-10단계(게이팅+병렬 표시)에서 룰북의 "법적 근거" 설명과 나란히 보여줄 ML 쪽 설명 문구. `scripts/shap_analysis.py`의 `FEATURE_EXPLANATIONS`에 구현:
+10단계(게이팅+병렬 표시)에서 룰북의 "법적 근거" 설명과 나란히 보여줄 ML 쪽 설명 문구. `scripts/model/shap_analysis.py`의 `FEATURE_EXPLANATIONS`에 구현:
 
 | 피처 | 설명 문구 |
 |---|---|
@@ -72,5 +72,5 @@ total_sent_usd=10.20 (SHAP +0.66): 누적 송금액 큼
 
 ```bash
 cd risk-scoring
-python3 scripts/shap_analysis.py
+python3 scripts/model/shap_analysis.py
 ```

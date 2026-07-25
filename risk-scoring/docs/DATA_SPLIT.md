@@ -41,5 +41,5 @@ GOG 데이터셋의 핵심 결함 중 하나가 "주소 단위 라벨을 거래 
 
 ```bash
 cd risk-scoring
-python3 scripts/split_dataset.py
+python3 scripts/data_collection/split_dataset.py
 ```

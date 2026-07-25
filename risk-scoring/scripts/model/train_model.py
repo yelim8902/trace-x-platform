@@ -23,7 +23,7 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_validat
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 
 OLD_GRAPH_STAT_COLUMNS = [
     "fan_in_count", "fan_out_count", "pattern_score", "n_omega", "n_theta",

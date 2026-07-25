@@ -2,7 +2,7 @@ import json
 import statistics
 from pathlib import Path
 
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 extracted = json.load(open(project_root / "data/dataset/xblock_extracted.json"))
 tx_data = json.load(open(project_root / "data/dataset/xblock_transactions.json"))
 tx_by_addr = {r["address"]: r for r in tx_data}

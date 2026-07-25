@@ -32,5 +32,5 @@
 
 ```bash
 cd risk-scoring
-python3 scripts/train_final_model.py
+python3 scripts/model/train_final_model.py
 ```

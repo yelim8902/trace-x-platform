@@ -20,7 +20,9 @@ CEX를 위한 주소 추적 및 리스크 스코어링 시스템
 - **그래프 패턴 탐지**: Layering Chain, Cycle, Fan-in/Fan-out 등
 - **OFAC SDN 리스트 통합**: 제재 대상 주소 자동 탐지
 
-> 💡 **Multi-hop 모드 권장**: 복잡한 세탁 패턴 탐지를 위해 Multi-hop 모드 사용을 권장합니다. 자세한 내용은 `docs/FINAL_API_SPEC.md` 참고.
+> 💡 **Multi-hop 모드 권장**: 복잡한 세탁 패턴 탐지를 위해 Multi-hop 모드 사용을 권장합니다.
+
+> 💡 **ML 트랙**: 룰 기반 스코어링과 별개로 학습된 ML 모델(HistGradientBoosting)이 `ml`/`gating` 필드로 병렬 응답됩니다. 어떻게 만들어졌는지는 `docs/README.md`(9~10단계 문서, `MODEL_INTERPRETATION.md`/`GATING_INTEGRATION.md`) 참고.
 
 ---
 
@@ -157,9 +159,19 @@ POST /api/analyze/address
   "completed_at": "2025-11-21T10:00:00Z",
   "timestamp": "2025-11-15T00:27:17Z",
   "chain_id": 1,
-  "value": 8000.0
+  "value": 8000.0,
+  "ml": {
+    "ml_score": 86.9,
+    "ml_risk_level": "critical",
+    "ml_top_features": [
+      { "feature": "fan_in_count", "value": 104.0, "shap_value": 5.18, "direction": "increases_risk", "explanation": "여러 주소로부터 자금이 한 곳으로 집중 유입됨..." }
+    ]
+  },
+  "gating": { "triggered": true, "rule_ids": ["C-001"] }
 }
 ```
+
+**`ml`/`gating`은 룰 트랙(`risk_score`/`risk_level`/`fired_rules`)과 완전히 별개로 계산되는 병렬 트랙입니다** — 하나의 숫자로 합치지 않습니다. `gating.triggered`가 true면 컴플라이언스 룰(제재/믹서 직접 노출)이 발동했다는 뜻이라, `ml_risk_level`이 낮아도 최우선 검토 대상입니다. 자세한 내용과 실제 검증 사례는 `docs/GATING_INTEGRATION.md` 참고.
 
 ---
 
@@ -265,7 +277,7 @@ Target (0xhigh_risk...)  [분석 대상]
 - ✅ Layering Chain (B-201), Cycle (B-202) 패턴 탐지
 - ✅ 리스크 탐지 정확도 30-50% 향상
 
-**참고**: Multi-hop 데이터 수집 방법은 `docs/MULTI_HOP_REQUIREMENT.md` 참고
+**참고**: 이 예시의 target_address/from/to는 설명용 가상 주소입니다. 실제 Multi-hop 데이터를 어떻게 수집하고 검증했는지는 `docs/README.md`의 데이터 수집 문서들을 참고하세요.
 
 ---
 
@@ -357,57 +369,67 @@ Target (0xhigh_risk...)  [분석 대상]
 3. **USD 환산**: `amount_usd` 계산 (시세 API 사용)
 4. **방향 명확화**: `from`, `to` 주소 정확히 구분
 
-자세한 내용은 다음 문서를 참고하세요:
-
-- `docs/FINAL_API_SPEC.md` - 최종 API 스펙
-- `docs/CORRECT_INPUT_FORMAT.md` - 올바른 입력 포맷
-- `docs/MULTI_HOP_REQUIREMENT.md` - Multi-hop 데이터 수집 방법
+자세한 내용은 `docs/README.md`(문서 전체 가이드)를 참고하세요.
 
 ---
 
 ## 프로젝트 구조
 
 ```
-Cryptocurrency-Graphs-of-graphs/
+risk-scoring/
 │
 ├── api/                          # API 서버
 │   ├── app.py                    # Flask 서버 메인
 │   └── routes/                   # API 라우트
 │       ├── scoring.py            # 단일 트랜잭션 스코어링
-│       └── address_analysis.py  # 주소 분석
+│       └── address_analysis.py  # 주소 분석 (룰 + ML + 게이팅)
 │
 ├── core/                         # 핵심 로직
 │   ├── scoring/                  # 스코어링 엔진
 │   │   ├── engine.py             # 단일 트랜잭션 스코어링
-│   │   └── address_analyzer.py   # 주소 기반 분석
+│   │   ├── address_analyzer.py   # 주소 기반 룰 분석
+│   │   └── ml_scorer.py          # ML 스코어러 (룰과 독립, 병렬 표시용)
 │   ├── rules/                    # 룰 평가
 │   │   ├── evaluator.py          # 룰 평가기
 │   │   └── loader.py             # 룰북 로더
-│   ├── aggregation/              # 집계 모듈
+│   ├── aggregation/               # 집계/피처 모듈
 │   │   ├── window.py             # 윈도우 기반 집계
 │   │   ├── bucket.py             # 버킷 기반 집계
-│   │   └── topology.py           # 그래프 구조 분석
+│   │   ├── topology.py           # 그래프 구조 분석
+│   │   ├── peel_chain.py         # peel chain 패턴 (ML 피처)
+│   │   ├── deviation_features.py # 금액/빈도 이상치 (ML 피처)
+│   │   └── exposure_distance.py  # 제재/믹서 hop 거리 (게이팅용)
 │   └── data/                     # 데이터 로더
 │       └── lists.py              # 리스트 관리
 │
 ├── rules/                        # 룰북 정의
 │   └── tracex_rules.yaml         # TRACE-X 룰북
 │
+├── models/                       # 프로덕션 ML 모델 아티팩트
+│   ├── ml_risk_model.joblib       # 학습된 HistGradientBoosting 파이프라인
+│   └── ml_risk_model_metadata.json
+│
 ├── data/                         # 데이터
 │   ├── lists/                    # 블랙리스트/화이트리스트
 │   │   ├── sdn_addresses.json    # OFAC SDN 리스트
 │   │   └── cex_addresses.json    # CEX 주소 리스트
+│   ├── dataset/                  # 학습/평가용 데이터셋 (gitignore, 스크립트로 재생성)
 │   └── cache/                    # 캐시 (자동 생성)
 │
-├── docs/                         # 문서
-│   ├── API_DOCUMENTATION.md      # API 상세 명세
-│   ├── RISK_SCORING_IO.md        # 입출력 명세
-│   ├── DEPLOYMENT_GUIDE.md       # 배포 가이드
-│   └── examples/                 # API 테스트 예시
+├── scripts/                      # 파이프라인 스크립트 (docs/README.md 참고)
+│   ├── data_collection/          # 데이터 수집 (XBlock, ETH-Labels-2026)
+│   ├── eda/                      # EDA
+│   ├── features/                 # 피처 엔지니어링
+│   ├── model/                    # 모델 학습/평가/해석
+│   └── (최상위)                  # 룰 엔진 유지보수 스크립트
+│
+├── docs/                         # 문서 — **docs/README.md**에서 전체 가이드 확인
+│
+├── legacy/                       # 폐기된 GOG(Graph of Graphs) 실험 코드 (재현 불가로 폐기, legacy/README.md 참고)
 │
 ├── run_server.py                 # 서버 실행 스크립트
 ├── requirements.txt              # Python 의존성
-└── README.md                     # 프로젝트 개요
+└── README.md                     # 프로젝트 개요 (현재 파일)
 ```
 
 ---
@@ -447,56 +469,38 @@ Cryptocurrency-Graphs-of-graphs/
 ### curl 사용
 
 ```bash
-# 주소 분석
+# 주소 분석 (위 "Response" 예시와 같은 payload)
 curl -X POST http://localhost:5001/api/analyze/address \
   -H "Content-Type: application/json" \
-  -d @docs/examples/test_api.json
+  -d '{
+    "address": "0xhigh_risk_mixer_sanctioned",
+    "chain_id": 1,
+    "transactions": [
+      {"tx_hash": "0xtx1", "chain_id": 1, "timestamp": "2025-11-15T00:27:17Z",
+       "block_height": 1000, "from": "0xmixer_service_123", "to": "0xhigh_risk_mixer_sanctioned",
+       "label": "mixer", "is_sanctioned": false, "is_known_scam": false, "is_mixer": true,
+       "is_bridge": false, "amount_usd": 5000.0, "asset_contract": "0xETH"}
+    ],
+    "analysis_type": "basic"
+  }'
 
 # 단일 트랜잭션 스코어링
 curl -X POST http://localhost:5001/api/score/transaction \
   -H "Content-Type: application/json" \
-  -d @docs/examples/test_single_transaction.json
+  -d '{"tx_hash": "0xtx1", "chain_id": 1, "timestamp": "2025-11-15T00:27:17Z",
+       "block_height": 1000, "target_address": "0xhigh_risk_mixer_sanctioned",
+       "counterparty_address": "0xmixer_service_123", "label": "mixer",
+       "is_sanctioned": false, "is_known_scam": false, "is_mixer": true,
+       "is_bridge": false, "amount_usd": 5000.0, "asset_contract": "0xETH"}'
 ```
-
-### 테스트 예시 파일
-
-- `docs/examples/test_api.json` - 주소 분석 테스트용
-- `docs/examples/test_single_transaction.json` - 단일 트랜잭션 테스트용
-
-자세한 테스트 방법은 `docs/QUICK_TEST_GUIDE.md`를 참고하세요.
 
 ---
 
 ## 문서
 
-### 핵심 문서 (7개)
+이 리스크 스코어링 엔진은 표준 10단계 ML 라이프사이클(문제 정의 → 데이터 수집 → EDA → 분할 → 피처 엔지니어링 → 학습 → 평가 → 선정 → 해석 → 게이팅 통합)로 재구축됐습니다. 전체 문서 가이드는 **[`docs/README.md`](docs/README.md)**에서 순서대로 확인하세요 — 룰북/데이터/피처/모델/SHAP 해석까지 실제 실행한 명령어와 검증된 수치가 각 단계별로 기록돼 있습니다.
 
-모든 문서는 `docs/` 폴더에 있습니다. **`docs/README.md`**에서 문서 가이드를 확인하세요.
-
-#### 시작하기
-
-- **README.md** (현재 파일) - 프로젝트 개요 및 빠른 시작
-- **QUICK_TEST_GUIDE.md** - 빠른 테스트 가이드 (Swagger UI 사용법)
-
-#### API 사용
-
-- **FINAL_API_SPEC.md** ⭐️ - 최종 API 스펙 (Multi-hop 지원)
-- **API_DOCUMENTATION.md** - 전체 API 문서
-- **RISK_SCORING_IO.md** - 리스크 스코어링 엔진 입출력 명세
-
-#### 룰북
-
-- **RULEBOOK_DETAILED.md** ⭐️ - TRACE-X 룰북 상세 설명 (22개 룰 전체)
-
-#### 배포
-
-- **DEPLOYMENT_GUIDE.md** - 배포 가이드 (백엔드 팀용)
-
-### 상세 문서
-
-상세한 구현 가이드, 논문, Multi-hop 관련 문서 등은 `docs/archive/` 폴더에 보관되어 있습니다.
-
-**문서 읽기 순서**: `docs/README.md` 참고
+폐기된 이전 실험(GOG 논문 데이터 기반)은 `legacy/`에 보관돼 있으며, 왜 폐기했는지는 `docs/DATA_COLLECTION_OVERVIEW.md`에 설명돼 있습니다.
 
 ---
 

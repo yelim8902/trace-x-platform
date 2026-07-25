@@ -16,7 +16,7 @@ import sys
 import time
 from pathlib import Path
 
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from core.aggregation.subgraph_utils import build_bounded_subgraph  # noqa: E402

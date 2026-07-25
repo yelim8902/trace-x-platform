@@ -11,7 +11,7 @@ import statistics
 from collections import Counter
 from pathlib import Path
 
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 data = json.load(open(project_root / "data/dataset/eth_labels_2026_transactions.json"))
 
 fraud = [r for r in data if r["ground_truth_label"] == "fraud"]

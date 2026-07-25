@@ -63,6 +63,6 @@ Etherscan v2 API(무료 티어, `txlist`+`tokentx`, 요청당 0.25초 간격)로
 
 ```bash
 cd risk-scoring
-python3 scripts/build_eth_labels_dataset.py           # 주소 manifest 생성 (API 호출 없음)
-python3 scripts/fetch_eth_labels_transactions.py      # Etherscan API로 거래내역 수집 (~25-30분)
+python3 scripts/data_collection/build_eth_labels_dataset.py           # 주소 manifest 생성 (API 호출 없음)
+python3 scripts/data_collection/fetch_eth_labels_transactions.py      # Etherscan API로 거래내역 수집 (~25-30분)
 ```

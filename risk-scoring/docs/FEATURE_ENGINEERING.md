@@ -18,7 +18,7 @@
 
 ### 데이터 문제와 해결
 
-`xblock_transactions.json`은 타겟 주소의 1홉 거래만 있어서 멀티홉 패턴 검증이 불가능했음. `scripts/extract_peel_chain_features.py`를 새로 작성해서 `MulDiGraph.pkl`(원본 그래프, 이미 로컬에 있음)에서 주소별로 **depth≤5, breadth≤5(가중치 상위), 노드수≤300** 제한된 BFS 서브그래프를 직접 뽑음. train 4,315개 전체 처리에 그래프 로딩 포함 약 30초 소요 (예상보다 훨씬 빠름).
+`xblock_transactions.json`은 타겟 주소의 1홉 거래만 있어서 멀티홉 패턴 검증이 불가능했음. `scripts/features/extract_peel_chain_features.py`를 새로 작성해서 `MulDiGraph.pkl`(원본 그래프, 이미 로컬에 있음)에서 주소별로 **depth≤5, breadth≤5(가중치 상위), 노드수≤300** 제한된 BFS 서브그래프를 직접 뽑음. train 4,315개 전체 처리에 그래프 로딩 포함 약 30초 소요 (예상보다 훨씬 빠름).
 
 ### 임계값 튜닝 (train set 스윕)
 
@@ -58,7 +58,7 @@ fan-in/fan-out(B-203/204) 튜닝 때와 같은 패턴 — 처음 정의(min_hops
 
 ### ETH-Labels-2026 재검증 결과 (2024~2025년, 시기 정합 데이터)
 
-`scripts/validate_exposure_eth_labels.py`로 재검증. 단, 이 데이터셋은 XBlock의 `MulDiGraph.pkl` 같은 멀티홉 그래프가 없고 주소별 1-hop 거래 목록만 있어서 **hop=1(직접 접촉) 여부만 확인 가능** — hop=2 이상은 이 데이터로는 판단 불가(과소측정 가능성 있음, 추가 검증하려면 상대방 주소의 거래내역도 Etherscan에서 더 받아와야 함, 이번엔 범위 밖).
+`scripts/features/validate_exposure_eth_labels.py`로 재검증. 단, 이 데이터셋은 XBlock의 `MulDiGraph.pkl` 같은 멀티홉 그래프가 없고 주소별 1-hop 거래 목록만 있어서 **hop=1(직접 접촉) 여부만 확인 가능** — hop=2 이상은 이 데이터로는 판단 불가(과소측정 가능성 있음, 추가 검증하려면 상대방 주소의 거래내역도 Etherscan에서 더 받아와야 함, 이번엔 범위 밖).
 
 **sanction_hop_distance (SDN_LIST 947개, 1-hop)**: fraud 0/249 (0.00%), normal 0/497 (0.00%) — **여전히 신호 없음**. 시기가 맞아도(중앙값 2025-02) 이 10개 사건의 관련 주소들이 SDN 리스트와 1-hop 이내로 직접 얽히지 않음. 시기 불일치만이 원인이 아니었고, "이 표본의 사건들이 OFAC 제재 대상과 직접 거래하지 않는다"는 것 자체가 실제 결과일 수 있음 — hop=2+ 데이터 없이는 완전히 결론 내릴 수 없어 **여전히 보류**.
 
@@ -81,7 +81,7 @@ FATF의 "AEC/privacy coin 전환" 레드플래그는 이더리움에 그대로 �
 
 ### ETH-Labels-2026 재검증 결과 (2024~2025년, 시기 정합 데이터)
 
-`scripts/validate_exposure_eth_labels.py`로 재검증(1-hop 직접 접촉만 확인 가능, 근거는 위 sanction 섹션과 동일). MIXER_LIST(`bridge_contracts.json`의 `mixer_services`, 67개)는 `privacy_protocol_involved`가 쓰는 것과 완전히 같은 리스트라 이 데이터에서는 두 피처가 사실상 동일한 계산이 됨.
+`scripts/features/validate_exposure_eth_labels.py`로 재검증(1-hop 직접 접촉만 확인 가능, 근거는 위 sanction 섹션과 동일). MIXER_LIST(`bridge_contracts.json`의 `mixer_services`, 67개)는 `privacy_protocol_involved`가 쓰는 것과 완전히 같은 리스트라 이 데이터에서는 두 피처가 사실상 동일한 계산이 됨.
 
 - **fraud 4/249 (1.61%)** 직접 접촉 확인 (`truebit-exploit` 1건, `wazirx-exploit` 1건, `zkswap-exploit` 2건)
 - **normal 0/497 (0.00%)** — 접촉 없음
@@ -159,6 +159,6 @@ XBlock의 완전한 0/0(시기가 안 맞아 아예 겹칠 수 없었던 경우)
 
 ```bash
 cd risk-scoring
-python3 scripts/extract_peel_chain_features.py --output data/dataset/peel_chain_train.json
-python3 scripts/validate_exposure_eth_labels.py
+python3 scripts/features/extract_peel_chain_features.py --output data/dataset/peel_chain_train.json
+python3 scripts/features/validate_exposure_eth_labels.py
 ```

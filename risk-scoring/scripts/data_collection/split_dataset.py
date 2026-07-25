@@ -13,7 +13,7 @@ import json
 import random
 from pathlib import Path
 
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 SEED = 42
 RATIOS = {"train": 0.70, "val": 0.15, "test": 0.15}
 

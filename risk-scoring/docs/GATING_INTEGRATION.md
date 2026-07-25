@@ -27,7 +27,7 @@
 
 ## 라이브 ML 피처 계산의 한계 — peel_chain 제외
 
-`amount_deviation_score`/`frequency_deviation_score`와 11개 그래프 통계는 대상 주소의 1-hop 거래 리스트만으로 계산 가능(XBlock의 `graph_nodes`/`graph_edges`도 원래 1-hop 이웃 기준 정의라 그대로 재현 가능, `scripts/extract_features_from_pkl.py`와 동일 공식을 `ml_scorer.py`에 이식). 그런데 `peel_chain_max_length`/`peel_chain_count`는 멀티홉 그래프가 있어야 계산되는데, 이 API는 대상 주소의 1-hop 거래만 입력받으므로 **항상 None으로 채움**(HistGB가 NaN을 분기 조건으로 처리). 9단계에서 이미 이 두 피처의 전역 기여도가 거의 0이라는 걸 확인했으므로 대부분 영향 없지만, `fan_in_count=0`인 예외 케이스(9단계 미탐 사례)에서는 유일한 신호일 수 있다는 것도 같은 문서에 기록해둠 — 멀티홉 데이터 소스가 붙으면 우선 보완 대상.
+`amount_deviation_score`/`frequency_deviation_score`와 11개 그래프 통계는 대상 주소의 1-hop 거래 리스트만으로 계산 가능(XBlock의 `graph_nodes`/`graph_edges`도 원래 1-hop 이웃 기준 정의라 그대로 재현 가능, `scripts/data_collection/extract_features_from_pkl.py`와 동일 공식을 `ml_scorer.py`에 이식). 그런데 `peel_chain_max_length`/`peel_chain_count`는 멀티홉 그래프가 있어야 계산되는데, 이 API는 대상 주소의 1-hop 거래만 입력받으므로 **항상 None으로 채움**(HistGB가 NaN을 분기 조건으로 처리). 9단계에서 이미 이 두 피처의 전역 기여도가 거의 0이라는 걸 확인했으므로 대부분 영향 없지만, `fan_in_count=0`인 예외 케이스(9단계 미탐 사례)에서는 유일한 신호일 수 있다는 것도 같은 문서에 기록해둠 — 멀티홉 데이터 소스가 붙으면 우선 보완 대상.
 
 ## 검증 (curl, 로컬 서버)
 

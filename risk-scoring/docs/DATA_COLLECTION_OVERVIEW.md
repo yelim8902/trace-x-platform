@@ -39,8 +39,8 @@ Etherscan 공식 라벨 API(`getlabelmasterlist`, `exportaddresstags`)로 직접
 ### 실제로 쓴 경로
 
 - **라벨 출처**: `dawsbot/eth-labels` (GitHub, 무료, `pushed_at: 2026-07-10`로 거의 실시간 유지보수) — Etherscan 라벨과 같은 성격의 데이터를 공개 저장소로 미러링해주는 프로젝트.
-- **`scripts/build_eth_labels_dataset.py`**: 이 저장소의 `accounts.json`(EVM 전체 144,378개 라벨)을 스크립트가 직접 다운로드(`urlretrieve`, 캐싱)해서, fraud 키워드가 붙은 라벨 249개(bybit-exploit, wazirx-exploit 등 2024~2025년 실제 사건 10개) + 명확히 합법적인 카테고리(CEX/DeFi/비영리)에서 정상 497개를 샘플링(seed=42) → `eth_labels_2026_manifest.json`.
-- **`scripts/fetch_eth_labels_transactions.py`**: 이 746개 주소 각각에 대해 **Etherscan 무료 티어 API**(`txlist`+`tokentx`)로 실제 거래내역을 가져옴. 요청 간 0.25초 간격(무료 티어 초당 5회 제한 안전마진), 746개 처리에 약 26.5분 소요.
+- **`scripts/data_collection/build_eth_labels_dataset.py`**: 이 저장소의 `accounts.json`(EVM 전체 144,378개 라벨)을 스크립트가 직접 다운로드(`urlretrieve`, 캐싱)해서, fraud 키워드가 붙은 라벨 249개(bybit-exploit, wazirx-exploit 등 2024~2025년 실제 사건 10개) + 명확히 합법적인 카테고리(CEX/DeFi/비영리)에서 정상 497개를 샘플링(seed=42) → `eth_labels_2026_manifest.json`.
+- **`scripts/data_collection/fetch_eth_labels_transactions.py`**: 이 746개 주소 각각에 대해 **Etherscan 무료 티어 API**(`txlist`+`tokentx`)로 실제 거래내역을 가져옴. 요청 간 0.25초 간격(무료 티어 초당 5회 제한 안전마진), 746개 처리에 약 26.5분 소요.
 - **결과**: fraud 249개 중 220개(88.4%), normal 497개 중 386개(77.7%)에서 실제 온체인 활동 확인.
 
 ### 알려진 API 키 노출과 처리
@@ -75,13 +75,13 @@ York University BCCC가 배포하는 2017~2024년 벤치마크(1,026,867건 트�
 cd risk-scoring
 # XBlock
 kaggle datasets download -d xblock/ethereum-phishing-transaction-network -p data/xblock/
-python3 scripts/extract_features_from_pkl.py
-python3 scripts/extract_txs_for_rules.py --input "data/xblock/Ethereum Phishing Transaction Network/MulDiGraph.pkl" --addresses data/dataset/xblock_extracted.json --output data/dataset/xblock_transactions.json
-python3 scripts/split_dataset.py
+python3 scripts/data_collection/extract_features_from_pkl.py
+python3 scripts/data_collection/extract_txs_for_rules.py --input "data/xblock/Ethereum Phishing Transaction Network/MulDiGraph.pkl" --addresses data/dataset/xblock_extracted.json --output data/dataset/xblock_transactions.json
+python3 scripts/data_collection/split_dataset.py
 
 # ETH-Labels-2026
-python3 scripts/build_eth_labels_dataset.py
-python3 scripts/fetch_eth_labels_transactions.py
+python3 scripts/data_collection/build_eth_labels_dataset.py
+python3 scripts/data_collection/fetch_eth_labels_transactions.py
 ```
 
 큰 산출물(`data/dataset/*.json`)은 용량 때문에 `.gitignore`로 커밋 대상에서 뺐고, 대신 재현 명령어와 (XBlock의 경우) 주소 목록만 담은 경량 매니페스트(`split_manifest_*.txt`)를 커밋해서 "어떤 주소가 어디에 쓰였는지"는 항상 git에 남도록 했다.
