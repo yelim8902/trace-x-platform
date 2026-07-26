@@ -231,34 +231,17 @@ export const ButtonHint = styled.span`
 `;
 
 // 사이드바 (노드 상세 정보)
+// 룰/ML 근거가 늘어나면서 고정 높이(700px) + 내부 스크롤 조합이 답답해져서,
+// 높이 제한을 없애고 내용 그대로 자라도록 바꿈 — 대신 페이지 자체가 자연스럽게
+// 스크롤됨(작은 박스 안에서 또 스크롤하는 것보다 이게 한 번에 훑어보기 편함).
+// 너비도 400 -> 460으로 넓혀서 룰/ML 설명 줄바꿈을 줄임(세로 길이도 같이 줄어듦).
 export const DetailsSidebar = styled.div`
-  width: 400px;
-  min-width: 400px;
-  height: 700px; /* 그래프와 동일한 높이 */
-  overflow-y: auto;
+  width: 460px;
+  min-width: 460px;
   background: var(--neutral800, #060a1d);
   border: 1px solid var(--secondary200, #343b4f);
   border-radius: 8px;
   padding: 24px;
-
-  /* 스크롤바 스타일 */
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: rgba(31, 41, 55, 0.5);
-    border-radius: 4px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: rgba(59, 130, 246, 0.5);
-    border-radius: 4px;
-
-    &:hover {
-      background: rgba(59, 130, 246, 0.7);
-    }
-  }
 `;
 
 export const SidebarHeader = styled.div`
