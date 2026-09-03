@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(./venv/bin/python -c ' *)",
+      "Bash(ps -o pid,etime,time,command -p 5414)"
+    ]
+  }
+}
