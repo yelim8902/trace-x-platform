@@ -341,7 +341,7 @@ export function Graph({
       <div
         style={{
           width: "100%",
-          height: "700px",
+          height: "750px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -522,7 +522,7 @@ export function Graph({
     <div
       style={{
         width: "100%",
-        height: "700px", // 그래프 창 높이 증가
+        height: "750px", // 사이드바는 이제 내용 길이만큼 자라고, 그래프는 독립적으로 고정 높이 유지
         marginTop: 20,
         border: "1px solid var(--secondary200, #343b4f)",
         borderRadius: "8px",
